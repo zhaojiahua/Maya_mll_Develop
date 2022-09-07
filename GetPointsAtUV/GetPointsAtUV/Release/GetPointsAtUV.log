@@ -1,0 +1,16 @@
+﻿生成启动时间为 2022/9/7 17:19:41。
+     1>项目“E:\AAA_myself\visualstudio2015\GetPointsAtUV\GetPointsAtUV\GetPointsAtUV.vcxproj”在节点 2 上(Build 个目标)。
+     1>ClCompile:
+         C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\bin\x86_amd64\CL.exe /c /I. /I"C:\Program Files\Autodesk\Maya2018\include" /Zi /nologo /W3 /WX- /O2 /Ob1 /D NDEBUG /D WIN32 /D _WINDOWS /D _USRDLL /D NT_PLUGIN /D _HAS_ITERATOR_DEBUGGING=0 /D _SECURE_SCL=0 /D _SECURE_SCL_THROWS=0 /D _SECURE_SCL_DEPRECATE=0 /D _CRT_SECURE_NO_DEPRECATE /D TBB_USE_DEBUG=0 /D __TBB_LIB_NAME=tbb.lib /D REQUIRE_IOSTREAM /D AW_NEW_IOSTREAMS /D Bits64_ /D _WINDLL /GF /Gm- /EHsc /MD /GS /Gy /fp:precise /Zc:wchar_t /Zc:forScope /Zc:inline /GR /Fo"Release\\" /Fd"Release\GetPointsAtUV.pdb" /Gd /TP /errorReport:prompt GetPointsAtUVCmd.cpp
+         GetPointsAtUVCmd.cpp
+     1>GetPointsAtUVCmd.cpp(38): warning C4838: 从“double”转换到“float”需要收缩转换
+     1>GetPointsAtUVCmd.cpp(38): warning C4244: “初始化”: 从“double”转换到“float”，可能丢失数据
+       Link:
+         C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\bin\x86_amd64\link.exe /ERRORREPORT:PROMPT /OUT:"Release\GetPointsAtUV.mll" /INCREMENTAL:NO /NOLOGO /LIBPATH:"C:\Program Files\Autodesk\Maya2018\lib" Foundation.lib OpenMaya.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /PDB:"Release\GetPointsAtUV.pdb" /SUBSYSTEM:WINDOWS /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE:NO /NXCOMPAT /IMPLIB:"Release\GetPointsAtUV.lib" /MACHINE:X64 /export:initializePlugin /export:uninitializePlugin /DLL Release\GetPointsAtUVCmd.obj
+           正在创建库 Release\GetPointsAtUV.lib 和对象 Release\GetPointsAtUV.exp
+         GetPointsAtUV.vcxproj -> E:\AAA_myself\visualstudio2015\GetPointsAtUV\GetPointsAtUV\Release\GetPointsAtUV.mll
+     1>已完成生成项目“E:\AAA_myself\visualstudio2015\GetPointsAtUV\GetPointsAtUV\GetPointsAtUV.vcxproj”(Build 个目标)的操作。
+
+已成功生成。
+
+已用时间 00:00:00.43
