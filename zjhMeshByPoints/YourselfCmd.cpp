@@ -22,7 +22,7 @@ MStatus YourselfCommand::doIt(const MArgList&)
 	for (unsigned int i = 0; i < selectionList.length(); i++)
 	{
 		MDagPath tempath;
-		selectionList.getDagPath(i, tempath);		//»ñÈ¡DagPath
+		selectionList.getDagPath(i, tempath);		//èŽ·å–DagPath
 		jntsPaths.append(tempath);
 		MVectorArray tempVetorArray;
 		stat = GetAllChildrenPosition(tempath, tempVetorArray);
@@ -41,35 +41,41 @@ MStatus YourselfCommand::redoIt()
 	MFloatPointArray ptArrya;
 	MIntArray faceCounts, faceConnects;
 	//stat = GetParametersForCreator(rootPoss);
-	for (unsigned int i = 0; i < rootPoss.size(); i++) {
-		unsigned int next_i = (i + 1) % rootPoss.size();
-		for (unsigned int j = 0; j < rootPoss[i].length(); j++) {
-			ptArrya.append(MFloatPoint(rootPoss[i][j]));
-			if (j < rootPoss[i].length() - 1 && j< rootPoss[next_i].length() - 1) {
-				faceCounts.append(4);//Ã¿¸öÃæÓÐ4¸öµã
-				//4¸öµãµÄÐòºÅ
-				faceConnects.append(i * rootPoss[i].length() + j);//polygon pt1
-				faceConnects.append(i * rootPoss[i].length() + j + 1);//polygon pt2
-				faceConnects.append(next_i * rootPoss[next_i].length() + j + 1);//polygon pt3
-				faceConnects.append(next_i * rootPoss[next_i].length() + j);//polygon pt4
+	unsigned int rootnumb = rootPoss.size();
+	if (rootnumb > 1) {
+		for (unsigned int i = 0; i < rootnumb; i++) {
+			unsigned int next_i = (i + 1) % rootnumb;
+			for (unsigned int j = 0; j < rootPoss[i].length(); j++) {
+				ptArrya.append(MFloatPoint(rootPoss[i][j]));
+				if (j < rootPoss[i].length() - 1 && j < rootPoss[next_i].length() - 1 && i < rootnumb - 1) {
+					faceCounts.append(4);//æ¯ä¸ªé¢æœ‰4ä¸ªç‚¹
+					//4ä¸ªç‚¹çš„åºå·
+					faceConnects.append(i * rootPoss[i].length() + j);//polygon pt1
+					faceConnects.append(i * rootPoss[i].length() + j + 1);//polygon pt2
+					faceConnects.append(next_i * rootPoss[next_i].length() + j + 1);//polygon pt3
+					faceConnects.append(next_i * rootPoss[next_i].length() + j);//polygon pt4
+				}
 			}
 		}
+		outMesh = tempFnMesh.create(ptArrya.length(), faceCounts.length(), ptArrya, faceCounts, faceConnects, MObject::kNullObj, &stat);
 	}
-	outMesh = tempFnMesh.create(ptArrya.length(), faceCounts.length(), ptArrya, faceCounts, faceConnects, MObject::kNullObj, &stat);
-	//skin
-	MFnSkinCluster skinCluster(outMesh);
-	unsigned int numfluence=skinCluster.influenceObjects(jntsPaths);
+	else {
+		MGlobal::displayWarning("the root number at least 2 joints");
+	}
+	////skin
+	//MFnSkinCluster skinCluster(outMesh);
+	//unsigned int numfluence = skinCluster.influenceObjects(jntsPaths);
 
 	setResult("zjhMeshByPoints command executed!\n");
 	return stat;
 }
 
-MStatus YourselfCommand::GetAllChildrenPosition(const MDagPath& rootPath ,MVectorArray& outArray)
+MStatus YourselfCommand::GetAllChildrenPosition(const MDagPath& rootPath, MVectorArray& outArray)
 {
 
-	MFnTransform fnTransform(rootPath);	//ÓÃÀ´»ñÈ¡µ±Ç°½ÚµãµÄÊÀ½ç×ø±ê
+	MFnTransform fnTransform(rootPath);	//ç”¨æ¥èŽ·å–å½“å‰èŠ‚ç‚¹çš„ä¸–ç•Œåæ ‡
 	outArray.append(fnTransform.getTranslation(MSpace::kWorld));
-	MFnDagNode fnDagNode(rootPath);		//ÓÃÀ´»ñÈ¡µ±Ç°½ÚµãµÄ×Ó½Úµã
+	MFnDagNode fnDagNode(rootPath);		//ç”¨æ¥èŽ·å–å½“å‰èŠ‚ç‚¹çš„å­èŠ‚ç‚¹
 
 	if (fnDagNode.childCount() == 0) return MS::kSuccess;
 	else {
@@ -92,11 +98,10 @@ MStatus YourselfCommand::undoIt()
 bool YourselfCommand::isUndoable() const
 {
 
-	return true;//¿É³·ÏúµÄÃüÁî
+	return true;//å¯æ’¤é”€çš„å‘½ä»¤
 }
 
 void* YourselfCommand::creator()
 {
 	return new YourselfCommand();
 }
-
