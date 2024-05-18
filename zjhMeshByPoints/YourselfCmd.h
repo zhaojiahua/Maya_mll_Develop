@@ -3,8 +3,9 @@
 #include <maya/MSelectionList.h>
 #include <vector>
 #include <maya/MDagPathArray.h>
+#include <maya/MStringArray.h>
 
-//Maya的命令类
+//Maya鐨勫懡浠ょ被
 class YourselfCommand :public MPxCommand
 {
 public:
@@ -22,9 +23,12 @@ private:
 	//for debug
 	MString tempStr;
 	MSelectionList selectionList;
-	//根据给定的根节点,遍历获取其下的所有子节点(如果某个根节点下有多个子节点,那么只有放在第一位的子节点才生效)
-	MStatus GetAllChildrenPosition(const MDagPath& rootPath, MVectorArray& outArray);
+	//鏍规嵁缁欏畾鐨勬牴鑺傜偣,閬嶅巻鑾峰彇鍏朵笅鐨勬墍鏈夊瓙鑺傜偣(濡傛灉鏌愪釜鏍硅妭鐐逛笅鏈夊涓瓙鑺傜偣,閭ｄ箞鍙湁鏀惧湪绗竴浣嶇殑瀛愯妭鐐规墠鐢熸晥)
+	MStatus GetAllChildrenPosition(const MDagPath& rootPath, MVectorArray& outArray,MStringArray& outJointsnames);
 	std::vector<MVectorArray> rootPoss;
+	MStringArray jointsname;
 	MDagPathArray jntsPaths;
 	MObject outMesh;
+	MString outMesh_name;
+	MString outJointsAndMeshes;
 };
