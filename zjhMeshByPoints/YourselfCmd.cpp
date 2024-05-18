@@ -25,10 +25,27 @@ MStatus YourselfCommand::doIt(const MArgList&)
 		selectionList.getDagPath(i, tempath);		//获取DagPath
 		jntsPaths.append(tempath);
 		MVectorArray tempVetorArray;
-		stat = GetAllChildrenPosition(tempath, tempVetorArray);
+		MStringArray tempJointsname;
+		stat = GetAllChildrenPosition(tempath, tempVetorArray, tempJointsname);
 		rootPoss.push_back(tempVetorArray);
+
+		for (int i=0;i< tempJointsname.length();++i)
+		{
+			jointsname.append(tempJointsname[i]);
+		}
 	}
 	MGlobal::displayInfo(tempStr + "rootPoss.size: " + rootPoss.size());
+	if (rootPoss.size() > 1) {
+		for (int i = 1; i < rootPoss.size(); ++i) {
+			if (rootPoss[i].length() != rootPoss[i - 1].length()) {
+				MGlobal::displayWarning("each and every root joints children must be equal");//每个根骨骼的子骨骼必须数目相等
+				break;
+			}
+		}
+	}
+	else {
+		MGlobal::displayWarning("the root number at least 2 joints");
+	}
 	return redoIt();
 }
 
@@ -58,32 +75,32 @@ MStatus YourselfCommand::redoIt()
 			}
 		}
 		outMesh = tempFnMesh.create(ptArrya.length(), faceCounts.length(), ptArrya, faceCounts, faceConnects, MObject::kNullObj, &stat);
+		MFnDagNode outMeshNode(outMesh);
+		outMesh_name = outMeshNode.name();
+		jointsname.append(outMesh_name);
 	}
 	else {
 		MGlobal::displayWarning("the root number at least 2 joints");
 	}
-	////skin
-	//MFnSkinCluster skinCluster(outMesh);
-	//unsigned int numfluence = skinCluster.influenceObjects(jntsPaths);
-
-	setResult("zjhMeshByPoints command executed!\n");
+	MGlobal::selectByName(outMesh_name, MGlobal::kReplaceList);
+	setResult(jointsname);
 	return stat;
 }
 
-MStatus YourselfCommand::GetAllChildrenPosition(const MDagPath& rootPath, MVectorArray& outArray)
+MStatus YourselfCommand::GetAllChildrenPosition(const MDagPath& rootPath, MVectorArray& outArray, MStringArray& outJointsnames)
 {
 
 	MFnTransform fnTransform(rootPath);	//用来获取当前节点的世界坐标
 	outArray.append(fnTransform.getTranslation(MSpace::kWorld));
 	MFnDagNode fnDagNode(rootPath);		//用来获取当前节点的子节点
-
+	outJointsnames.append(fnDagNode.name());
 	if (fnDagNode.childCount() == 0) return MS::kSuccess;
 	else {
 		MObject temp_child = fnDagNode.child(0);
 		MFnDagNode child_fnDagNode(temp_child);
 		MDagPath childPath;
 		child_fnDagNode.getPath(childPath);
-		GetAllChildrenPosition(childPath, outArray);
+		GetAllChildrenPosition(childPath, outArray, outJointsnames);
 	}
 	return MS::kSuccess;
 }
