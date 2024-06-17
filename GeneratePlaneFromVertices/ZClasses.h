@@ -7,7 +7,7 @@ class Z5Matrix;
 
 class Z5Vector
 {
-	double mateData[5];
+	double* mateData;
 public:
 	Z5Vector();
 	Z5Vector(double* in5list);
@@ -28,11 +28,13 @@ public:
 
 class Z5Matrix
 {
-	double mateData[25];
+	double* mateData = nullptr;
 public:
 	Z5Matrix();
 	Z5Matrix(double* in25list);
 	Z5Matrix(Z5Vector* in5vects);
+
+	~Z5Matrix();
 
 	void SetElementsAll(double* in25list);
 	void SetElement(int index_r, int index_c, double value);
@@ -43,8 +45,8 @@ public:
 	void MakeIdentity();
 	//返回该矩阵的转置矩阵
 	Z5Matrix Transpose();
-	//返回指定元素坐标的子矩阵(返回的是mateData数组)
-	static double* SubMatrix(double* indata, int index_r, int index_c);
+	//返回指定元素坐标的子矩阵(去掉该行该列后得到的matsize-1阶矩阵)(返回的是mateData数组)(要传入原始数据和方阵的大小)
+	static double* SubMatrix(double* indata, int matsize, int index_r, int index_c);
 
 	Z5Matrix operator*(Z5Matrix in5mat);
 	Z5Vector operator*(Z5Vector in5vec);

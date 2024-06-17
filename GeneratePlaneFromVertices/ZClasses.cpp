@@ -2,50 +2,98 @@
 
 Z5Matrix::Z5Matrix()
 {
+	mateData = new double[25];
+	for (int i = 0; i < 5; ++i) {
+		for (int j = 0; j < 5; ++j) {
+			if (i == j)mateData[i * 5 + j] = 1;
+			else mateData[i * 5 + j] = 0;
+		}
+	}
 }
 
 Z5Matrix::Z5Matrix(double* in25list)
 {
+	mateData = in25list;
 }
 
 Z5Matrix::Z5Matrix(Z5Vector* in5vects)
 {
+	mateData = new double[25];
+	for (int i = 0; i < 5; ++i) {
+		for (int j = 0; j < 5; ++j) {
+			mateData[i * 5 + j] = in5vects[i].GetElement(j);
+		}
+	}
+}
+
+Z5Matrix::~Z5Matrix()
+{
+	delete[] mateData;
 }
 
 void Z5Matrix::SetElementsAll(double* in25list)
 {
+	mateData = in25list;
 }
 
 void Z5Matrix::SetElement(int index_r, int index_c, double value)
 {
+	mateData[index_r * 5 + index_c] = value;
 }
 
 void Z5Matrix::SetElementsByZ5Vector(int index, Z5Vector in5vec)
 {
+	for (int i = 0; i < 5; ++i) {
+		mateData[index * 5 + i] = in5vec.GetElement(i);
+	}
 }
 
 Z5Vector Z5Matrix::GetElementsByZ5Vector(int index)
 {
-	return Z5Vector();
+	double tempvalues[5];
+	for (int i = 0; i < 5; ++i) {
+		tempvalues[i] = mateData[index * 5 + i];
+	}
+	return Z5Vector(tempvalues);
 }
 
 double Z5Matrix::GetElement(int index_r, int index_c)
 {
-	return 0.0;
+	return mateData[index_r * 5 + index_c];
 }
 
 void Z5Matrix::MakeIdentity()
 {
+	for (int i = 0; i < 5; ++i) {
+		for (int j = 0; j < 5; ++j) {
+			if (i == j)mateData[i * 5 + j] = 1;
+			else mateData[i * 5 + j] = 0;
+		}
+	}
 }
 
 Z5Matrix Z5Matrix::Transpose()
 {
-	return Z5Matrix();
+	double tmate[25];
+	for (int i = 0; i < 5; ++i) {
+		for (int j = 0; j < 5; ++j) {
+			tmate[i * 5 + j] = mateData[j * 5 + i];
+		}
+	}
+	return Z5Matrix(tmate);
 }
 
-double* Z5Matrix::SubMatrix(double* indata, int index_r, int index_c)
+double* Z5Matrix::SubMatrix(double* indata, int matsize, int index_r, int index_c)
 {
-	return nullptr;
+	if (matsize < 2) { MGlobal::displayError("matrix size < 2"); return NULL; }
+	else {
+		int tsize = (matsize - 1) * matsize;//ÏÈÈ¥µôÐÐ
+		double* tmate1 = new double(tsize);
+
+		double* tmate4X4 = new double(tsize);
+
+		return tmate4X4;
+	}
 }
 
 Z5Matrix Z5Matrix::operator*(Z5Matrix in5mat)
@@ -112,12 +160,12 @@ Z5Vector::Z5Vector()
 
 Z5Vector::Z5Vector(double* in5list)
 {
-	for (int i = 0; i < 5; ++i) { mateData[i] = in5list[i]; }
+	mateData = in5list;
 }
 
 void Z5Vector::SetElements(double* in5list)
 {
-	for (int i = 0; i < 5; ++i) { mateData[i] = in5list[i]; }
+	mateData = in5list;
 }
 
 void Z5Vector::SetElement(int index, double invalue)
