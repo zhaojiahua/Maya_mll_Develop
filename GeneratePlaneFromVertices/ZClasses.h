@@ -40,6 +40,7 @@ public:
 	void SetElement(int index_r, int index_c, double value);
 	void SetElementsByZ5Vector(int index, Z5Vector in5vec);
 	Z5Vector GetElementsByZ5Vector(int index);
+	double* GetMateData();
 	double GetElement(int index_r, int index_c);
 	//使该矩阵变成单位矩阵
 	void MakeIdentity();
@@ -67,4 +68,7 @@ public:
 	
 	//打印函数(方便Debug)
 	void Print();
+	//打印matedata数组(需要指定方阵的大小)
+	static void PrintMateDatas(double* indatas, int insize);
 };
+
