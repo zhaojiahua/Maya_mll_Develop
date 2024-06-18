@@ -12,7 +12,7 @@ MStatus YourselfCommand::doIt(const MArgList& arglist)
 	MSelectionList allselections;
 	MGlobal::getActiveSelectionList(allselections);
 	MStatus suc;
-	for (int i=0; i< allselections.length();++i) {
+	for (unsigned int i=0; i< allselections.length();++i) {
 		MDagPath tdag;
 		allselections.getDagPath(i, tdag);
 		MFnDagNode tfnnode(tdag);
@@ -34,14 +34,23 @@ MStatus YourselfCommand::redoIt()
 		MFnMesh tfnmesh(tdag);
 		MPointArray tpoints;
 		suc=tfnmesh.getPoints(tpoints, MSpace::kWorld);
-		for (int i = 0; i < tpoints.length(); ++i){
-			MGlobal::displayInfo(tdag.partialPathName() + tpoints[i].x + MString(" ") + tpoints[i].y + MString(" ") + tpoints[i].z + MString(" ") + tpoints[i].w);
+		//for (int i = 0; i < tpoints.length(); ++i){
+		//	MGlobal::displayInfo(tdag.partialPathName() + tpoints[i].x + MString(" ") + tpoints[i].y + MString(" ") + tpoints[i].z + MString(" ") + tpoints[i].w);
+		//}
+	}
+	Z5Matrix newmat = Z5Matrix();
+	for (int i = 0; i < 5; ++i) {
+		for (int j = 0; j < 5; ++j) {
+			newmat.SetElement(i, j, (int)(MRandom::Rand_d((i + 1) * (j + 1) + 13, 11) * 100));
 		}
 	}
-	Z5Vector tempV = Z5Vector();
-	tempV.Print();
+	newmat.Print();
+	MDoubleArray submat1 = Z5Matrix::SubMatrix(newmat.GetMateData(), 1, 2);
+	MDoubleArray submat2 = Z5Matrix::SubMatrix(submat1, 1,1);
+	Z5Matrix::PrintMateDatas(submat1);
+	Z5Matrix::PrintMateDatas(submat2);
 
-	setResult("EmptyP command executed!\n");
+
 	return MS::kSuccess;
 }
 

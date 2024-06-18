@@ -13,7 +13,7 @@
 #include <maya/MPoint.h>
 #include <maya/MPointArray.h>
 
-#include "ZClasses.h";
+#include "ZClasses.h"
 
 //MayaµÄÃüÁîÀà
 class YourselfCommand :public MPxCommand

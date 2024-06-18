@@ -1,25 +1,28 @@
 #include "ZClasses.h"
-#include <math.h>
 
 Z5Matrix::Z5Matrix()
 {
-	mateData = new double[25];
+	mateData = MDoubleArray(25, 0.0);
 	for (int i = 0; i < 5; ++i) {
 		for (int j = 0; j < 5; ++j) {
 			if (i == j)mateData[i * 5 + j] = 1;
-			else mateData[i * 5 + j] = 0;
 		}
 	}
 }
 
 Z5Matrix::Z5Matrix(double* in25list)
 {
-	mateData = in25list;
+	mateData = MDoubleArray(in25list, 25);
+}
+
+Z5Matrix::Z5Matrix(MDoubleArray in25array)
+{
+	mateData = in25array;
 }
 
 Z5Matrix::Z5Matrix(Z5Vector* in5vects)
 {
-	mateData = new double[25];
+	mateData = MDoubleArray(25, 0.0);
 	for (int i = 0; i < 5; ++i) {
 		for (int j = 0; j < 5; ++j) {
 			mateData[i * 5 + j] = in5vects[i].GetElement(j);
@@ -28,13 +31,15 @@ Z5Matrix::Z5Matrix(Z5Vector* in5vects)
 }
 
 Z5Matrix::~Z5Matrix()
-{
-	delete[] mateData;
-}
+{}
 
 void Z5Matrix::SetElementsAll(double* in25list)
 {
-	mateData = in25list;
+	mateData = MDoubleArray(in25list, 25);
+}
+void Z5Matrix::SetElementsAll(MDoubleArray in25array)
+{
+	mateData = in25array;
 }
 
 void Z5Matrix::SetElement(int index_r, int index_c, double value)
@@ -58,7 +63,7 @@ Z5Vector Z5Matrix::GetElementsByZ5Vector(int index)
 	return Z5Vector(tempvalues);
 }
 
-double* Z5Matrix::GetMateData()
+MDoubleArray Z5Matrix::GetMateData()
 {
 	return mateData;
 }
@@ -89,39 +94,34 @@ Z5Matrix Z5Matrix::Transpose()
 	return Z5Matrix(tmate);
 }
 
-double* Z5Matrix::SubMatrix(double* indata, int matsize, int index_r, int index_c)
+MDoubleArray Z5Matrix::SubMatrix(MDoubleArray inmat, int index_r, int index_c)
 {
-	if (matsize < 2) { MGlobal::displayError("matrix size < 2"); return NULL; }
+	int matsize = sqrt(inmat.length());
+	MDoubleArray newmate;
+	if (matsize < 2) { MGlobal::displayError("matrix size < 2"); return MDoubleArray(); }
 	else {
-		int tsize = (matsize - 1) * (matsize - 1);
-		double* tmat = new double(tsize);
-		for (int i = 0; i < index_r; ++i) {
-			for (int j = 0; j < index_c; ++j) {
-				tmat[i * (matsize - 1) + j] = indata[i * matsize + j];
+		for (int i = 0; i < matsize; ++i) {
+			for (int j = 0; j < matsize; ++j) {
+				if (i != index_r && j != index_c)newmate.append(inmat[i * matsize + j]);
 			}
 		}
-		for (int i = index_r+1; i < matsize; ++i) {
-			for (int j = 0; j < index_c; ++j) {
-				tmat[(i-1) * (matsize - 1) + j] = indata[i * matsize + j];
-			}
-		}
-		/*for (int i = 0; i < index_r; ++i) {
-			for (int j = index_c+1; j < matsize; ++j) {
-				tmat[i * (matsize - 1) + j - 1] = indata[i * matsize + j];
-			}
-		}
-		for (int i = index_r + 1; i < matsize; ++i) {
-			for (int j = index_c + 1; j < matsize; ++j) {
-				tmat[(i - 1) * (matsize - 1) + j - 1] = indata[i * matsize + j];
-			}
-		}*/
-		return tmat;
+		return newmate;
 	}
 }
 
 Z5Matrix Z5Matrix::operator*(Z5Matrix in5mat)
 {
-	return Z5Matrix();
+	Z5Matrix newmat;
+	for (int i = 0; i < 5; ++i) {
+		for (int j = 0; j < 5; ++j) {
+			double tresult = 0;
+			for (int k = 0; k < 5; ++k) {
+				tresult += (GetElement(i, k) * in5mat.GetElement(k, j));
+			}
+			newmat.SetElement(i, j, tresult);
+		}
+	}
+	return newmat;
 }
 
 Z5Vector Z5Matrix::operator*(Z5Vector in5vec)
@@ -130,7 +130,7 @@ Z5Vector Z5Matrix::operator*(Z5Vector in5vec)
 	for (int r = 0; r < 5; ++r) {
 		double tvalue = 0;
 		for (int i = 0; i < 5; ++i) {
-			tvalue += (mateData[r * 5 + i] * in5vec.GetMateData()[i]);
+			tvalue += (GetElement(r, i) * in5vec.GetElement(i));
 		}
 		tvector.SetElement(r, tvalue);
 	}
@@ -148,17 +148,17 @@ Z5Matrix Z5Matrix::operator*(double inval)
 	return tmat;
 }
 
-double Z5Matrix::M2X2_Det(double* invalues)
+double Z5Matrix::M2X2_Det(MDoubleArray invalues)
+{
+	return invalues[0] * invalues[3] - invalues[1] * invalues[2];
+}
+
+double Z5Matrix::M3X3_Det(MDoubleArray invalues)
 {
 	return 0.0;
 }
 
-double Z5Matrix::M3X3_Det(double* invalues)
-{
-	return 0.0;
-}
-
-double Z5Matrix::M4X4_Det(double* invalues)
+double Z5Matrix::M4X4_Det(MDoubleArray invalues)
 {
 	return 0.0;
 }
@@ -189,10 +189,12 @@ void Z5Matrix::Print()
 		tstr += "]";
 		MGlobal::displayInfo(tstr);
 	}
+	MGlobal::displayInfo("");
 }
 
-void Z5Matrix::PrintMateDatas(double* indatas, int insize)
+void Z5Matrix::PrintMateDatas(MDoubleArray indatas)
 {
+	int insize = sqrt(indatas.length());
 	for (int i = 0; i < insize; ++i) {
 		MString tstr = MString("[");
 		for (int j = 0; j < insize; ++j) {
@@ -202,6 +204,7 @@ void Z5Matrix::PrintMateDatas(double* indatas, int insize)
 		tstr += "]";
 		MGlobal::displayInfo(tstr);
 	}
+	MGlobal::displayInfo("");
 }
 
 Z5Vector::Z5Vector()
@@ -211,12 +214,17 @@ Z5Vector::Z5Vector()
 
 Z5Vector::Z5Vector(double* in5list)
 {
-	mateData = in5list;
+	mateData = MDoubleArray(in5list, 5);
+}
+
+Z5Vector::Z5Vector(MDoubleArray inarry)
+{
+	mateData = inarry;
 }
 
 void Z5Vector::SetElements(double* in5list)
 {
-	mateData = in5list;
+	mateData = MDoubleArray(in5list, 5);
 }
 
 void Z5Vector::SetElement(int index, double invalue)
@@ -229,7 +237,7 @@ double Z5Vector::GetElement(int index)
 	return mateData[index];
 }
 
-double* Z5Vector::GetMateData()
+MDoubleArray Z5Vector::GetMateData()
 {
 	return mateData;
 }
