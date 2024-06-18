@@ -58,22 +58,20 @@ public:
 	Z5Vector operator*(Z5Vector in5vec);
 	Z5Matrix operator*(double inval);
 
-	//返回2X2矩阵的行列式的值
-	static double M2X2_Det(MDoubleArray invalues);
-	//返回3X3矩阵的行列式的值
-	static double M3X3_Det(MDoubleArray invalues);
-	//返回4X4矩阵的行列式的值
-	static double M4X4_Det(MDoubleArray invalues);
-	//返回该矩阵的行列式的值
+	//返回此矩阵的行列式的值
 	double Determinant();
+	//输入方阵返回该矩阵的行列式的值
+	static double Determinant(MDoubleArray inmate);
 	//返回该矩阵的伴随矩阵
 	Z5Matrix AdjointMatrix();
 	//返回该矩阵的逆矩阵
 	Z5Matrix InverseMatrix();
-	
+
 	//打印函数(方便Debug)
 	void Print();
 	//打印matedata数组(需要指定方阵的大小)
 	static void PrintMateDatas(MDoubleArray indatas);
+	static void PrintMateDatas(double indata);
 };
 
+Z5Matrix operator*(double, Z5Matrix);

@@ -1,4 +1,4 @@
-#include "YourselfCmd.h"
+ï»¿#include "YourselfCmd.h"
 
 
 YourselfCommand::YourselfCommand()
@@ -12,7 +12,7 @@ MStatus YourselfCommand::doIt(const MArgList& arglist)
 	MSelectionList allselections;
 	MGlobal::getActiveSelectionList(allselections);
 	MStatus suc;
-	for (unsigned int i=0; i< allselections.length();++i) {
+	for (unsigned int i = 0; i < allselections.length(); ++i) {
 		MDagPath tdag;
 		allselections.getDagPath(i, tdag);
 		MFnDagNode tfnnode(tdag);
@@ -33,23 +33,20 @@ MStatus YourselfCommand::redoIt()
 		itselections.getDagPath(tdag);
 		MFnMesh tfnmesh(tdag);
 		MPointArray tpoints;
-		suc=tfnmesh.getPoints(tpoints, MSpace::kWorld);
-		//for (int i = 0; i < tpoints.length(); ++i){
-		//	MGlobal::displayInfo(tdag.partialPathName() + tpoints[i].x + MString(" ") + tpoints[i].y + MString(" ") + tpoints[i].z + MString(" ") + tpoints[i].w);
-		//}
+		suc = tfnmesh.getPoints(tpoints, MSpace::kWorld);
+
 	}
 	Z5Matrix newmat = Z5Matrix();
 	for (int i = 0; i < 5; ++i) {
 		for (int j = 0; j < 5; ++j) {
-			newmat.SetElement(i, j, (int)(MRandom::Rand_d((i + 1) * (j + 1) + 13, 11) * 100));
+			newmat.SetElement(i, j, (int)(MRandom::Rand_d((i + 1) * (j + 1) + 17, 113) * 100));
 		}
 	}
 	newmat.Print();
-	MDoubleArray submat1 = Z5Matrix::SubMatrix(newmat.GetMateData(), 1, 2);
-	MDoubleArray submat2 = Z5Matrix::SubMatrix(submat1, 1,1);
-	Z5Matrix::PrintMateDatas(submat1);
-	Z5Matrix::PrintMateDatas(submat2);
-
+	Z5Matrix inversemat = newmat.InverseMatrix();
+	inversemat.Print();
+	Z5Matrix nresult = newmat * inversemat;
+	nresult.Print();
 
 	return MS::kSuccess;
 }
@@ -63,10 +60,41 @@ MStatus YourselfCommand::undoIt()
 
 bool YourselfCommand::isUndoable() const
 {
-	return true;//¿É³·ÏúµÄÃüÁî
+	return true;
 }
 
 void* YourselfCommand::creator()
 {
 	return new YourselfCommand();
+}
+
+MStatus YourselfCommand::Get2DPoints(const MDagPath& inpath, int&, MDoubleArray&, double&)
+{
+	MStatus succ;
+	MFnMesh tfnmesh(inpath);
+	MPointArray allpoints;
+	succ = tfnmesh.getPoints(allpoints, MSpace::kWorld);
+	unsigned int ptnum = tfnmesh.numVertices();
+	MDoubleArray xdatas ;
+	MDoubleArray ydatas ;
+	MDoubleArray zdatas ;
+	MDoubleArray xzdatas ;//xè½´
+	MDoubleArray xydatas ;//xè½´
+	MDoubleArray yxdatas ;//yè½´
+	MDoubleArray yzdatas ;//yè½´
+	MDoubleArray zxdatas ;//zè½´
+	MDoubleArray zydatas ;//zè½´
+	for (int i = 0; i < ptnum; ++i) {
+		xdatas.append(allpoints[i].x);
+		ydatas.append(allpoints[i].y);
+		zdatas.append(allpoints[i].z);
+		xzdatas.append(allpoints[i].x); xzdatas.append(allpoints[i].z);
+		xydatas.append(allpoints[i].x); xydatas.append(allpoints[i].y);
+		yxdatas.append(allpoints[i].y); xydatas.append(allpoints[i].x);
+		yzdatas.append(allpoints[i].y); xydatas.append(allpoints[i].z);
+		zxdatas.append(allpoints[i].z); xydatas.append(allpoints[i].x);
+		zydatas.append(allpoints[i].z); xydatas.append(allpoints[i].y);
+	}
+	
+	return succ;
 }

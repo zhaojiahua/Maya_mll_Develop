@@ -148,34 +148,39 @@ Z5Matrix Z5Matrix::operator*(double inval)
 	return tmat;
 }
 
-double Z5Matrix::M2X2_Det(MDoubleArray invalues)
-{
-	return invalues[0] * invalues[3] - invalues[1] * invalues[2];
-}
-
-double Z5Matrix::M3X3_Det(MDoubleArray invalues)
-{
-	return 0.0;
-}
-
-double Z5Matrix::M4X4_Det(MDoubleArray invalues)
-{
-	return 0.0;
-}
-
 double Z5Matrix::Determinant()
 {
-	return 0.0;
+	return Z5Matrix::Determinant(mateData);
+}
+
+double Z5Matrix::Determinant(MDoubleArray inmate)
+{
+	int matsize = sqrt(inmate.length());
+	if (matsize == 2)return inmate[0] * inmate[3] - inmate[1] * inmate[2];
+	else {
+		double tvalue = 0;
+		for (int i = 0; i < matsize; ++i) {
+			tvalue += (inmate[i] * Z5Matrix::Determinant(Z5Matrix::SubMatrix(inmate, 0, i)) * pow(-1, i));
+		}
+		return tvalue;
+	}
 }
 
 Z5Matrix Z5Matrix::AdjointMatrix()
 {
-	return Z5Matrix();
+	Z5Matrix tmat;
+	for (int i = 0; i < 5; ++i) {
+		for (int j = 0; j < 5; ++j) {
+			double dsyzs = pow(-1, i + j) * Z5Matrix::Determinant(Z5Matrix::SubMatrix(mateData, i, j));
+			tmat.SetElement(j, i, dsyzs);
+		}
+	}
+	return tmat;
 }
 
 Z5Matrix Z5Matrix::InverseMatrix()
 {
-	return Z5Matrix();
+	return 1.0 / Determinant() * AdjointMatrix();
 }
 
 void Z5Matrix::Print()
@@ -207,9 +212,15 @@ void Z5Matrix::PrintMateDatas(MDoubleArray indatas)
 	MGlobal::displayInfo("");
 }
 
+void Z5Matrix::PrintMateDatas(double indata)
+{
+	MGlobal::displayInfo(MString("") + indata);
+	MGlobal::displayInfo("");
+}
+
 Z5Vector::Z5Vector()
 {
-	for (int i = 0; i < 5; ++i) {	mateData[i] = 0;}
+	for (int i = 0; i < 5; ++i) { mateData[i] = 0; }
 }
 
 Z5Vector::Z5Vector(double* in5list)
@@ -280,3 +291,7 @@ void Z5Vector::Print()
 	MGlobal::displayInfo(tstr + mateData[0] + "," + mateData[1] + "," + mateData[2] + "," + mateData[3] + "," + mateData[4] + "]");
 }
 
+Z5Matrix operator*(double ind, Z5Matrix inm)
+{
+	return inm * ind;
+}
