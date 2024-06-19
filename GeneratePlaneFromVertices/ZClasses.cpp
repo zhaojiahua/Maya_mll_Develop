@@ -220,7 +220,7 @@ void Z5Matrix::PrintMateDatas(double indata)
 
 Z5Vector::Z5Vector()
 {
-	for (int i = 0; i < 5; ++i) { mateData[i] = 0; }
+	mateData = MDoubleArray(5, 0.0);
 }
 
 Z5Vector::Z5Vector(double* in5list)
@@ -236,6 +236,11 @@ Z5Vector::Z5Vector(MDoubleArray inarry)
 void Z5Vector::SetElements(double* in5list)
 {
 	mateData = MDoubleArray(in5list, 5);
+}
+
+void Z5Vector::SetElements(MDoubleArray inarry)
+{
+	mateData = inarry;
 }
 
 void Z5Vector::SetElement(int index, double invalue)
@@ -294,4 +299,12 @@ void Z5Vector::Print()
 Z5Matrix operator*(double ind, Z5Matrix inm)
 {
 	return inm * ind;
+}
+
+MDoubleArray operator+(MDoubleArray a1, MDoubleArray a2)
+{
+	MDoubleArray  nea = MDoubleArray();
+	for (int i = 0; i < a1.length(); ++i)nea.append(a1[i]);
+	for (int i = 0; i < a2.length(); ++i)nea.append(a2[i]);
+	return nea;
 }

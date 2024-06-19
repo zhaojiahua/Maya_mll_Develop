@@ -16,6 +16,7 @@ public:
 	Z5Vector(MDoubleArray inarry);
 
 	void SetElements(double* in5list);
+	void SetElements(MDoubleArray inarry);
 	void SetElement(int index, double invalue);
 	double GetElement(int index);
 	MDoubleArray GetMateData();
@@ -75,3 +76,5 @@ public:
 };
 
 Z5Matrix operator*(double, Z5Matrix);
+
+MDoubleArray operator+(MDoubleArray a1, MDoubleArray a2);
