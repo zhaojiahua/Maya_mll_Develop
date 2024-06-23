@@ -21,7 +21,8 @@ MStatus YourselfCommand::doIt(const MArgList& arglist)
 		}
 	}
 	MSyntax syt = MSyntax();
-	syt.addFlag("cs", "curveSpans", MSyntax::kUnsigned);
+	syt.addFlag("sp", "curveSpans", MSyntax::kUnsigned);
+	syt.addFlag("rsp", "rowcurveSpans", MSyntax::kUnsigned);
 	syt.addFlag("be", "bothExtend", MSyntax::kDouble);
 	MArgParser argp = MArgParser(syt, arglist, &stat);
 	if (argp.isFlagSet("curveSpans"))	stat = argp.getFlagArgument("curveSpans", 0, crvptnum);
@@ -36,11 +37,14 @@ MStatus YourselfCommand::redoIt()
 	for (; itselections.isDone() != true; itselections.next()) {
 		MDagPath tdag;
 		itselections.getDagPath(tdag);
+		MFnMesh tfnmesh(tdag);
+		MPointArray allpoints;
+		suc = tfnmesh.getPoints(allpoints, MSpace::kWorld);
 		//首先获取延展轴向和相应两个平面空间上的点
 		MDoubleArray planepts12, planepts1, planepts2;//两个平面数据
 		unsigned int spreadAxies;//延展轴向
 		MDoubleArray mmvs;//延展轴向的最大距离
-		suc = Get2DPoints(tdag, spreadAxies, planepts12, mmvs);
+		suc = Get2DPoints(allpoints, spreadAxies, planepts12, mmvs);
 		if (!suc)MGlobal::displayInfo("--------------- Get2DPoints Error");
 		bool toscale = false;
 		MFnTransform fnTrsform(tdag);
@@ -48,7 +52,8 @@ MStatus YourselfCommand::redoIt()
 			double scales[3] = { 100 ,100 ,100 };
 			fnTrsform.scaleBy(scales);
 			toscale = true;
-			suc = Get2DPoints(tdag, spreadAxies, planepts12, mmvs);
+			tfnmesh.getPoints(allpoints, MSpace::kWorld);
+			suc = Get2DPoints(allpoints, spreadAxies, planepts12, mmvs);
 		}
 		suc = HalfSplit(planepts12, planepts1, planepts2);
 		Z5Matrix AM1 = Z5Matrix();
@@ -60,8 +65,6 @@ MStatus YourselfCommand::redoIt()
 		Z5Vector Coe1 = AM1.InverseMatrix() * YV1;
 		Z5Vector Coe2 = AM2.InverseMatrix() * YV2;
 		MPointArray eps;
-		//MGlobal::displayInfo(MString("mmin ") + mmvs[0]);
-		//MGlobal::displayInfo(MString("mmax ") + mmvs[1]);
 		suc = GenerateCrvEPs(Coe1, Coe2, spreadAxies, mmvs, crvptnum, eps);
 		MFnNurbsCurve crvFn;
 		MObject fcur = crvFn.createWithEditPoints(eps, 3, MFnNurbsCurve::kOpen, false, true, true);
@@ -74,9 +77,72 @@ MStatus YourselfCommand::redoIt()
 			tFnTrsform.scaleBy(scales);
 			fnTrsform.scaleBy(scales);
 		}
+		//MColorArray colorsArray;
+		//for (int i = 0; i < crvptnum+1; ++i) {
+		//	float	 tcs[3];
+		//	MRandom::Rand_3f(tcs, i, 9999);
+		//	colorsArray.append(MColor(tcs));
+		//}
+		MIntArray* splitedIndexes = SlitedPointsByCrv(allpoints, crvFn);
+		//返回每一段中间位置的切线,正交化后的法线,和此切线法线组成的局部坐标系变换到世界坐标系的旋转四元数
+		MVectorArray midpos,midtangents, midnormals;
+		for (int i = 0; i < crvptnum; ++i) {
+			MPoint tmpt;
+			crvFn.getPointAtParam(i + 0.5, tmpt);
+			midpos.append(tmpt);
+			MVector tnormal = crvFn.normal(i + 0.5).normal();
+			MVector ttangent = crvFn.tangent(i + 0.5).normal();
+			double tmaxdistance = 0.0;
+			int maxdisInd = 0;
+			MPoint closetP;
+			for (int ind : splitedIndexes[i]) {
+				MPoint tclosetP = crvFn.closestPoint(allpoints[ind]);
+				double tdis = (allpoints[ind] - tclosetP).length();
+				if (tdis > tmaxdistance) {
+					tmaxdistance = tdis;
+					maxdisInd = ind;
+					closetP = tclosetP;
+				}
+			}
+			MVector desv = (allpoints[maxdisInd] - closetP).normal();
+			desv = (ttangent ^ desv) ^ ttangent;//施密特正交化
+			tnormal = tnormal.rotateBy(tnormal.rotateTo(desv));
+			midnormals.append(tnormal);
+			midtangents.append(ttangent);
+		}
+		StraightenNormals(midnormals, midtangents);
+		MQuaternion* toGquas = new MQuaternion[crvptnum];
+		for (int i = 0; i < crvptnum; ++i) {
+			//求局部坐标系到全局坐标系的旋转四元数
+			MQuaternion tq1 = midnormals[i].rotateTo(MVector(1, 0, 0));
+			MVector tttangent = midtangents[i] * tq1;
+			MQuaternion tq2 = tttangent.rotateTo(MVector(0, 1, 0));
+			MQuaternion qf = tq1 * tq2;
+
+			unsigned int partlen = splitedIndexes[i].length();
+			MPointArray partpoints(partlen);
+			for (int j = 0; j < partlen; ++j) {
+				partpoints[j] = allpoints[splitedIndexes[i][j]] * qf;
+			}
+			MPointArray EPs=GeneratePartCrvEPs(partpoints);
+			for (MPoint& ep : EPs) {
+				ep *= qf.inverse();
+			}
+			MFnNurbsCurve partcrvFn;
+			MObject fcur = partcrvFn.createWithEditPoints(EPs, 3, MFnNurbsCurve::kOpen, false, true, true);
+			MFnDagNode tpartnode(partcrvFn.parent(0));
+			tpartnode.setName(tdag.partialPathName() + MString("_partfitcrv") + i);
+		}
+		for (int i = 0; i < crvptnum; ++i) {
+			MGlobal::displayInfo(MString("[[") + midpos[i].x + "," + midpos[i].y + "," + midpos[i].z + "," + "],[" + midtangents[i].x + "," + midtangents[i].y + "," + midtangents[i].z + "],[" + midnormals[i].x + "," + midnormals[i].y + "," + midnormals[i].z + "]]");
+		}
+		//for (int i = 0; i < crvptnum; ++i) {
+		//	for (int j = 0; j < splitedIndexes[i].length(); ++j) {
+		//		tfnmesh.setVertexColor(colorsArray[i], splitedIndexes[i][j]);
+		//	}
+		//}
+		//for (double item : allparams)MGlobal::displayInfo(MString("") + item);
 	}
-
-
 	return MS::kSuccess;
 }
 
@@ -97,13 +163,10 @@ void* YourselfCommand::creator()
 	return new YourselfCommand();
 }
 
-MStatus YourselfCommand::Get2DPoints(const MDagPath& inpath, unsigned int& saxies, MDoubleArray& oarray, MDoubleArray& mmv)
+MStatus YourselfCommand::Get2DPoints(const MPointArray& allpoints, unsigned int& saxies, MDoubleArray& oarray, MDoubleArray& mmv)
 {
 	MStatus succ;
-	MFnMesh tfnmesh(inpath);
-	MPointArray allpoints;
-	succ = tfnmesh.getPoints(allpoints, MSpace::kWorld);
-	unsigned int ptnum = tfnmesh.numVertices();
+	unsigned int ptnum = allpoints.length();
 	if (ptnum < 3)	{
 		MGlobal::displayError("Too few points");
 		return MStatus::kFailure;
@@ -291,4 +354,69 @@ MStatus YourselfCommand::GenerateCrvEPs(Z5Vector inc1, Z5Vector inc2, unsigned i
 		break;
 	}
 	return MStatus::kSuccess;
+}
+
+MIntArray* YourselfCommand::SlitedPointsByCrv(const MPointArray& allpoints, const MFnNurbsCurve& incrv)
+{
+	MIntArray* tsplitedIndexes = new MIntArray[crvptnum];//这里可以从incrv里获取其段数
+	for (int i = 0; i < allpoints.length(); ++i) {
+		double param;
+		MPoint cpt = incrv.closestPoint(allpoints[i], true, &param, kMFnNurbsEpsilon, MSpace::kObject, NULL);
+		//tfnmesh.setVertexColor(colorsArray[param], i);
+		tsplitedIndexes[(int)param].append(i);
+	}
+	return tsplitedIndexes;
+}
+
+MStatus YourselfCommand::StraightenNormals(MVectorArray& innormals, const MVectorArray& intangents)
+{
+	unsigned int innlen = innormals.length();
+	if (innlen > 2) {
+		for (int i = 1; i < innlen; ++i) {
+			if (innormals[i]*innormals[i - 1] < 0) {
+				innormals[i] = innormals[i].rotateBy(MQuaternion(3.1415926, intangents[i]));
+			}
+		}
+		return MStatus::kSuccess;
+	}
+	return MStatus::kFailure;
+}
+
+MPointArray YourselfCommand::GeneratePartCrvEPs(const MPointArray& inpoints)
+{
+	if (inpoints.length() < 2) { MGlobal::displayError("分段点数太少!"); return MPointArray(); }
+	int ptnum = inpoints.length();
+	MDoubleArray xydatas(2 * ptnum, 0.0), xzdatas(2 * ptnum, 0.0), xdatas;
+	for (int i = 0; i < ptnum; ++i) {
+		SortedAppend(inpoints[i].x, xdatas);
+		xydatas[i * 2] = inpoints[i].x; xydatas[i * 2 + 1] = inpoints[i].y;
+		xzdatas[i * 2] = inpoints[i].x; xzdatas[i * 2 + 1] = inpoints[i].z;
+	}
+	MDoubleArray mmvs;
+	mmvs.append(xdatas[0]); mmvs.append(xdatas[ptnum - 1]);
+	bool bescale = false;
+	if (xdatas[ptnum - 1] - xdatas[0] < 10) {
+		for (int i = 0; i < 2 * ptnum; ++i) {
+			xydatas[i] *= 100; xzdatas[i] *= 100;
+		}
+		mmvs[0] *= 100; mmvs[1] *= 100;
+		bescale = true;
+		//MGlobal::displayInfo("bescale true!");
+	}
+	Z5Matrix AM1 = Z5Matrix();
+	Z5Matrix AM2 = Z5Matrix();
+	Z5Vector YV1 = Z5Vector();
+	Z5Vector YV2 = Z5Vector();
+	GetAugmentedMatrix(xydatas, AM1, YV1);
+	GetAugmentedMatrix(xzdatas, AM2, YV2);
+	Z5Vector Coe1 = AM1.InverseMatrix() * YV1;
+	Z5Vector Coe2 = AM2.InverseMatrix() * YV2;
+	MPointArray teps;
+	GenerateCrvEPs(Coe1, Coe2, 0, mmvs, rowcurveSpans,teps);
+	if (bescale) {
+		for (MPoint& ep : teps) {
+			ep *= 0.01;
+		}
+	}
+	return teps;
 }
