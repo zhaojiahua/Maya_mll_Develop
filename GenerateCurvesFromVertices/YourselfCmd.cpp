@@ -100,6 +100,7 @@ MStatus YourselfCommand::redoIt()
 		}
 		MDagPath simmeshpath = ZGenMesh(GenMeshParam(uniEPss, crvptnum), tdag.partialPathName() + MString("_fitmesh"));
 		results.append(simmeshpath.partialPathName());
+		resultsDagpaths.append(simmeshpath);
 		//删除辅助曲线
 		MObject maincrvobj = crvpath.node();
 		MGlobal::deleteNode(maincrvobj);
@@ -114,8 +115,11 @@ MStatus YourselfCommand::redoIt()
 
 MStatus YourselfCommand::undoIt()
 {
-	MGlobal::displayInfo("EmptyP command undone!\n");
-
+	for (MDagPath tpath : resultsDagpaths) {
+		MObject tobj = tpath.node();
+		MGlobal::deleteNode(tobj);
+	}
+	MGlobal::displayInfo("GeneratePlaneFromVertices command undone!\n");
 	return MS::kSuccess;
 }
 

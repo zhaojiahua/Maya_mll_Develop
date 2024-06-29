@@ -53,6 +53,8 @@ private:// Store the data you will need to undo the command here
 	unsigned int rowcurveSpans = 5;
 	double bextend = 0.05;
 
+	MDagPathArray resultsDagpaths;
+
 	//把mesh放到世界中心,且缩放到合适的大小(输出调整后的所有的mesh点,mesh的中心位置,和缩放比例,顺便把延展轴向给返回了)
 	MStatus FitMesh(const MPointArray& inpoints,bool makeXsp, MPointArray&, MPoint&, double&, unsigned int&, MDoubleArray&);
 	//传入所选择的Mesh,它会返回该Mesh所在延伸轴向(0是x轴,1是y轴,2是z轴),和映射到对应的两个平面上二维点,以及在该轴向上的跨度(最大值与最小值之差)
