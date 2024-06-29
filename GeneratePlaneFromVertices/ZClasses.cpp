@@ -308,3 +308,12 @@ MDoubleArray operator+(MDoubleArray a1, MDoubleArray a2)
 	for (int i = 0; i < a2.length(); ++i)nea.append(a2[i]);
 	return nea;
 }
+
+ZGenMeshParam::ZGenMeshParam() :	numVertices(0), 
+																numPolygons(0), 
+																vertexArray(MPointArray()), 
+																polygonCounts(MIntArray()), 
+																polygonConnects(MIntArray()), 
+																parentOrOwner(MObject::kNullObj), 
+																ReturnStatus(NULL) {}
+

@@ -2,6 +2,9 @@
 #include <maya/MGlobal.h>
 #include <maya/MDoubleArray.h>
 #include <maya/MRandom.h>
+#include <maya/MPointArray.h>
+#include <maya/MPoint.h>
+#include <maya/MIntArray.h>
 
 using namespace std;
 
@@ -78,3 +81,16 @@ public:
 Z5Matrix operator*(double, Z5Matrix);
 
 MDoubleArray operator+(MDoubleArray a1, MDoubleArray a2);
+
+struct ZGenMeshParam
+{
+	int numVertices;
+	int numPolygons;
+	MPointArray vertexArray;
+	MIntArray polygonCounts;
+	MIntArray polygonConnects;
+	MObject parentOrOwner;
+	MStatus* ReturnStatus;
+
+	ZGenMeshParam();
+};
