@@ -29,6 +29,7 @@
 #include <maya/MMaterial.h>
 #include <maya/MHardwareRenderer.h>
 #include <maya/MFragmentManager.h>
+#include <maya/MFnNurbsCurveData.h>
 
 #include "ZClasses.h"
 
@@ -66,7 +67,7 @@ private:// Store the data you will need to undo the command here
 	//把一个MDoubleArray折半拆分成两个MDoubleArray
 	MStatus HalfSplit(MDoubleArray inpts12, MDoubleArray& inpts1, MDoubleArray& inpts2);
 	//传入多项式系数(两个平面空间),延展轴向,延展轴向取值范围,和分辨率,返回曲线的EP点坐标
-	MPointArray GenerateCrvEPs(Z5Vector inc1, Z5Vector inc2, unsigned int spreadAxies, const MDoubleArray& mmv, unsigned int epnum);
+	MPointArray GenerateCrvEPs(Z5Vector inc1, Z5Vector inc2, unsigned int spreadAxies, const MDoubleArray& mmv, unsigned int epnum,double inbe);
 	
 	//传入点集和一条曲线,这些点集会被沿着这条曲线的方向分割成与曲线相对应的段数对应(返回点的索引集合)
 	MIntArray* SlitedPointsByCrv(const MPointArray& inpoints, const MFnNurbsCurve& incrv);
@@ -80,4 +81,6 @@ private:// Store the data you will need to undo the command here
 	ZGenMeshParam GenMeshParam(MPointArray* inpointArrays, unsigned int ptarrayNum);
 	//传入创造polygon的参数生成相应的polygon
 	MDagPath ZGenMesh(const ZGenMeshParam& inmeshparam, MString inname);
+	//传入EP点阵,将这些点整理并平滑
+	MStatus SmoothUniEPS(MPointArray* unieps, unsigned int ptarrayNum);
 };

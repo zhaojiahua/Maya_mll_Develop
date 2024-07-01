@@ -96,18 +96,19 @@ MStatus YourselfCommand::redoIt()
 			}
 			MPointArray tunieps;
 			parCrvs.append(GenerateEPCurve(partCrvEPs, tdag.partialPathName() + MString("_partfitcrv") + i, tunieps));
-			uniEPss[i] = tunieps;
+			if (tunieps.length() > 0) uniEPss[i] = tunieps;
 		}
+		SmoothUniEPS(uniEPss, crvptnum);
 		MDagPath simmeshpath = ZGenMesh(GenMeshParam(uniEPss, crvptnum), tdag.partialPathName() + MString("_fitmesh"));
 		results.append(simmeshpath.partialPathName());
 		resultsDagpaths.append(simmeshpath);
 		//删除辅助曲线
-		MObject maincrvobj = crvpath.node();
-		MGlobal::deleteNode(maincrvobj);
-		for (MDagPath tpath : parCrvs) {
-			MObject tobj= tpath.node();
-			MGlobal::deleteNode(tobj);
-		}
+		//MObject maincrvobj = crvpath.node();
+		//MGlobal::deleteNode(maincrvobj);
+		//for (MDagPath tpath : parCrvs) {
+		//	MObject tobj= tpath.node();
+		//	MGlobal::deleteNode(tobj);
+		//}
 	}
 	setResult(results);
 	return MS::kSuccess;
@@ -361,13 +362,13 @@ MStatus YourselfCommand::HalfSplit(MDoubleArray inpts12, MDoubleArray& inpts1, M
 	return MStatus::kSuccess;
 }
 
-MPointArray YourselfCommand::GenerateCrvEPs(Z5Vector inc1, Z5Vector inc2, unsigned int spreadAxies, const MDoubleArray& mmv, unsigned int epnum)
+MPointArray YourselfCommand::GenerateCrvEPs(Z5Vector inc1, Z5Vector inc2, unsigned int spreadAxies, const MDoubleArray& mmv, unsigned int epnum,double inbe)
 {
 	MPointArray oPoints;
 	oPoints.setLength(epnum + 1);
 	//延展轴向前后多延展5%
-	double minv = mmv[0] - (mmv[1] - mmv[0]) * bextend;
-	double maxv = mmv[1] + (mmv[1] - mmv[0]) * bextend;
+	double minv = mmv[0] - (mmv[1] - mmv[0]) * inbe;
+	double maxv = mmv[1] + (mmv[1] - mmv[0]) * inbe;
 	double seglength = (maxv - minv) / epnum;
 	switch (spreadAxies)
 	{
@@ -451,12 +452,12 @@ MPointArray YourselfCommand::GenerateMatchedCurveEPs(const MPointArray& allpoint
 	GetAugmentedMatrix(planepts2, AM2, YV2);
 	Z5Vector Coe1 = AM1.InverseMatrix() * YV1;
 	Z5Vector Coe2 = AM2.InverseMatrix() * YV2;
-	MPointArray eps = GenerateCrvEPs(Coe1, Coe2, spAxises, mmvs, epcount);
+	MPointArray eps = GenerateCrvEPs(Coe1, Coe2, spAxises, mmvs, epcount, (!makeXsp) * bextend);
 	double scalefactor_1 = 1.0 / scalefactor;
 	for (MPoint& tep : eps) {//先缩放后移动
-		if (makeXsp) {//沿y轴向向中心点收缩50%
-			tep.y += (meshCenter.y - tep.y)*0.5;
-		}
+		//if (makeXsp) {//沿y轴向向中心点收缩50%
+		//	tep.y += (meshCenter.y - tep.y)*0.5;
+		//}
 		tep *= scalefactor_1;
 		tep += meshCenter;
 	}
@@ -466,6 +467,7 @@ MPointArray YourselfCommand::GenerateMatchedCurveEPs(const MPointArray& allpoint
 MDagPath YourselfCommand::GenerateEPCurve(const MPointArray& ineps, MString inname,MPointArray& unieps)
 {
 	unsigned int spans = ineps.length()-1;
+	if (spans < 1)return MDagPath();
 	MFnNurbsCurve partcrvFn;
 	MObject tcrv = partcrvFn.createWithEditPoints(ineps, 3, MFnNurbsCurve::kOpen, false, true, true);
 	double epartlen = partcrvFn.length()/spans;//线段总长度/段数(每个分段的平均长度)
@@ -527,8 +529,24 @@ MDagPath YourselfCommand::ZGenMesh(const ZGenMeshParam& inpa,MString inname)
 	MDagPath tdagp;
 	tpartnode.getPath(tdagp);
 	return tdagp;
-	//MGlobal::displayInfo(meshpath.fullPathName());
-	//MMaterial defaultmat = MMaterial::defaultMaterial();
-	//defaultmat.setMaterial(meshpath,true);
+}
+
+MStatus YourselfCommand::SmoothUniEPS(MPointArray* unieps, unsigned int ptarrayNum)
+{
+	unsigned int cols = unieps[0].length();
+	for (unsigned int i = 0; i < cols; ++i) {
+		MPointArray teps(ptarrayNum);
+		for (unsigned int j = 0; j < ptarrayNum; ++j) {
+			teps[j] = unieps[j][i];
+		}
+		MFnNurbsCurve tcolcrv;
+		MObject tcrv = tcolcrv.createWithEditPoints(teps, 3, MFnNurbsCurve::kOpen, false, true, true);
+		MObject ntcrv = tcolcrv.rebuild(3);
+		MFnDagNode ncrvnode(ntcrv);
+		ncrvnode.create(1);
+		MFnNurbsCurveData tcrvdata(ntcrv);
+		MObject nntcrv = tcrvdata.create();
+	}
+	return MStatus::kSuccess;
 }
 
