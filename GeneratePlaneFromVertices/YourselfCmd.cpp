@@ -103,12 +103,12 @@ MStatus YourselfCommand::redoIt()
 		results.append(simmeshpath.partialPathName());
 		resultsDagpaths.append(simmeshpath);
 		//删除辅助曲线
-		//MObject maincrvobj = crvpath.node();
-		//MGlobal::deleteNode(maincrvobj);
-		//for (MDagPath tpath : parCrvs) {
-		//	MObject tobj= tpath.node();
-		//	MGlobal::deleteNode(tobj);
-		//}
+		MObject maincrvobj = crvpath.node();
+		MGlobal::deleteNode(maincrvobj);
+		for (MDagPath tpath : parCrvs) {
+			MObject tobj= tpath.node();
+			MGlobal::deleteNode(tobj);
+		}
 	}
 	setResult(results);
 	return MS::kSuccess;
@@ -541,11 +541,26 @@ MStatus YourselfCommand::SmoothUniEPS(MPointArray* unieps, unsigned int ptarrayN
 		}
 		MFnNurbsCurve tcolcrv;
 		MObject tcrv = tcolcrv.createWithEditPoints(teps, 3, MFnNurbsCurve::kOpen, false, true, true);
-		MObject ntcrv = tcolcrv.rebuild(3);
-		MFnDagNode ncrvnode(ntcrv);
-		ncrvnode.create(1);
-		MFnNurbsCurveData tcrvdata(ntcrv);
-		MObject nntcrv = tcrvdata.create();
+		unsigned int nptarrayNum = ptarrayNum / 2;
+		if (nptarrayNum < 3)nptarrayNum = 3;
+		double ecrvlen = tcolcrv.length() / (nptarrayNum - 1);
+		MPointArray neps(nptarrayNum);
+		for (unsigned int j = 0; j < nptarrayNum; ++j) {
+			double tpara = tcolcrv.findParamFromLength(j * ecrvlen);
+			MPoint tpt;
+			tcolcrv.getPointAtParam(tpara, tpt, MSpace::kWorld);
+			neps[j] = tpt;
+		}
+		MGlobal::deleteNode(tcrv);
+		MObject tncrv = tcolcrv.createWithEditPoints(neps, 3, MFnNurbsCurve::kOpen, false, true, true);
+		ecrvlen = tcolcrv.length() / (ptarrayNum - 1);
+		for (unsigned int j = 0; j < ptarrayNum; ++j) {
+			double tpara = tcolcrv.findParamFromLength(j * ecrvlen);
+			MPoint tpt;
+			tcolcrv.getPointAtParam(tpara, tpt, MSpace::kWorld);
+			unieps[j][i] = tpt;
+		}
+		MGlobal::deleteNode(tncrv);
 	}
 	return MStatus::kSuccess;
 }

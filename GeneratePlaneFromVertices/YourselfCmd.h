@@ -30,6 +30,7 @@
 #include <maya/MHardwareRenderer.h>
 #include <maya/MFragmentManager.h>
 #include <maya/MFnNurbsCurveData.h>
+#include <maya/MFnDependencyNode.h>
 
 #include "ZClasses.h"
 
