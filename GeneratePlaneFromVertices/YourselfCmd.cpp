@@ -98,8 +98,9 @@ MStatus YourselfCommand::redoIt()
 			parCrvs.append(GenerateEPCurve(partCrvEPs, tdag.partialPathName() + MString("_partfitcrv") + i, tunieps));
 			if (tunieps.length() > 0) uniEPss[i] = tunieps;
 		}
-		SmoothUniEPS(uniEPss, crvptnum);
-		MDagPath simmeshpath = ZGenMesh(GenMeshParam(uniEPss, crvptnum), tdag.partialPathName() + MString("_fitmesh"));
+		unsigned int ncrvptnum = crvptnum;
+		SmoothUniEPS(uniEPss, ncrvptnum);
+		MDagPath simmeshpath = ZGenMesh(GenMeshParam(uniEPss, ncrvptnum), tdag.partialPathName() + MString("_fitmesh"));
 		results.append(simmeshpath.partialPathName());
 		resultsDagpaths.append(simmeshpath);
 		//删除辅助曲线
@@ -109,6 +110,8 @@ MStatus YourselfCommand::redoIt()
 			MObject tobj= tpath.node();
 			MGlobal::deleteNode(tobj);
 		}
+		delete[] uniEPss;//删除指针
+		delete[] splitedIndexes;//删除指针
 	}
 	setResult(results);
 	return MS::kSuccess;
@@ -410,7 +413,8 @@ MIntArray* YourselfCommand::SlitedPointsByCrv(const MPointArray& allpoints, cons
 		MPoint cpt = incrv.closestPoint(allpoints[i], true, &param, kMFnNurbsEpsilon, MSpace::kObject, NULL);
 		//tfnmesh.setVertexColor(colorsArray[param], i);
 		//MGlobal::displayInfo(MString("param ") + param);
-		tsplitedIndexes[(int)param].append(i);
+		unsigned int tindx = param < crvptnum ? param : param - 1;
+		tsplitedIndexes[tindx].append(i);
 	}
 	return tsplitedIndexes;
 }
@@ -531,8 +535,21 @@ MDagPath YourselfCommand::ZGenMesh(const ZGenMeshParam& inpa,MString inname)
 	return tdagp;
 }
 
-MStatus YourselfCommand::SmoothUniEPS(MPointArray* unieps, unsigned int ptarrayNum)
+MStatus YourselfCommand::SmoothUniEPS(MPointArray* inunieps, unsigned int& inptarrayNum)
 {
+	unsigned int ptarrayNum = 0;
+	MIntArray tindexarray;
+	for (unsigned int i = 0; i < inptarrayNum; ++i) {
+		if (inunieps[i].length() > 2) {//过滤点数大于2个的点组
+			ptarrayNum++;
+			tindexarray.append(i);
+		}
+	}
+	MPointArray* unieps = new MPointArray[ptarrayNum];
+	for (unsigned int i = 0; i < ptarrayNum; ++i) {
+		unieps[i] = inunieps[tindexarray[i]];
+	}
+
 	unsigned int cols = unieps[0].length();
 	for (unsigned int i = 0; i < cols; ++i) {
 		MPointArray teps(ptarrayNum);
@@ -562,6 +579,8 @@ MStatus YourselfCommand::SmoothUniEPS(MPointArray* unieps, unsigned int ptarrayN
 		}
 		MGlobal::deleteNode(tncrv);
 	}
+	inunieps = unieps;
+	inptarrayNum = ptarrayNum;
 	return MStatus::kSuccess;
 }
 
