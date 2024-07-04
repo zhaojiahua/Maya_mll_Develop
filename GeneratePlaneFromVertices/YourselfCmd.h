@@ -83,5 +83,5 @@ private:// Store the data you will need to undo the command here
 	//传入创造polygon的参数生成相应的polygon
 	MDagPath ZGenMesh(const ZGenMeshParam& inmeshparam, MString inname);
 	//传入EP点阵,将这些点整理并平滑(顺便把等于0的曲线组除去)
-	MStatus SmoothUniEPS(MPointArray* unieps, unsigned int& ptarrayNum);
+	MPointArray* SmoothUniEPS(MPointArray* inunieps, unsigned int& inptarrayNum);
 };

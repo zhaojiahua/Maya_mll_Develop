@@ -42,6 +42,11 @@ MStatus YourselfCommand::redoIt()
 		
 		MPointArray allpoints;
 		suc = tfnmesh.getPoints(allpoints, MSpace::kWorld);
+		if (!suc) { MGlobal::displayError("---------->>>>> mesh getPoints failed"); return MStatus::kFailure; }
+		if (allpoints.length() < crvptnum) {
+			MGlobal::displayError("---------->>>>> too few points , generate curve failed");
+			return MStatus::kFailure;
+		}
 		MPointArray maincrvEPs = GenerateMatchedCurveEPs(allpoints,false, crvptnum);
 		MPointArray mainUniEPs;
 		MDagPath crvpath = GenerateEPCurve(maincrvEPs, tdag.partialPathName() + "_fitcrv_M", mainUniEPs);
@@ -75,7 +80,8 @@ MStatus YourselfCommand::redoIt()
 			midnormals.append(tnormal);
 			midtangents.append(ttangent);
 		}
-		StraightenNormals(midnormals, midtangents);
+		suc = StraightenNormals(midnormals, midtangents);
+		if (!suc) { MGlobal::displayError("---------->>>>> mainCurve StraightenNormals failed"); return MStatus::kFailure; }
 		MDagPathArray parCrvs;
 		MPointArray* uniEPss = new MPointArray[crvptnum];
 		for (int i = 0; i < crvptnum; ++i) {
@@ -99,8 +105,12 @@ MStatus YourselfCommand::redoIt()
 			if (tunieps.length() > 0) uniEPss[i] = tunieps;
 		}
 		unsigned int ncrvptnum = crvptnum;
-		SmoothUniEPS(uniEPss, ncrvptnum);
-		MDagPath simmeshpath = ZGenMesh(GenMeshParam(uniEPss, ncrvptnum), tdag.partialPathName() + MString("_fitmesh"));
+		MPointArray* nuniEPss = SmoothUniEPS(uniEPss, ncrvptnum);
+		if (nuniEPss == nullptr) {
+			MGlobal::displayError("SmoothUniEPS failed");
+			return MStatus::kFailure;
+		}
+		MDagPath simmeshpath = ZGenMesh(GenMeshParam(nuniEPss, ncrvptnum), tdag.partialPathName() + MString("_fitmesh"));
 		results.append(simmeshpath.partialPathName());
 		resultsDagpaths.append(simmeshpath);
 		//删除辅助曲线
@@ -111,6 +121,7 @@ MStatus YourselfCommand::redoIt()
 			MGlobal::deleteNode(tobj);
 		}
 		delete[] uniEPss;//删除指针
+		delete[] nuniEPss;//删除指针
 		delete[] splitedIndexes;//删除指针
 	}
 	setResult(results);
@@ -435,6 +446,7 @@ MStatus YourselfCommand::StraightenNormals(MVectorArray& innormals, const MVecto
 
 MPointArray YourselfCommand::GenerateMatchedCurveEPs(const MPointArray& allpoints,  bool makeXsp, unsigned int epcount)
 {
+	MStatus suc = MStatus::kFailure;
 	if (allpoints.length() < 3) {
 		MGlobal::displayError("Too few points");
 		return MPointArray();
@@ -446,22 +458,23 @@ MPointArray YourselfCommand::GenerateMatchedCurveEPs(const MPointArray& allpoint
 	MPointArray fittedpoints;
 	double scalefactor;
 	unsigned int spAxises;
-	FitMesh(allpoints, makeXsp, fittedpoints, meshCenter, scalefactor, spAxises, mmvs);
-	Get2DPoints(fittedpoints, spAxises, planepts1, planepts2);
+	suc = FitMesh(allpoints, makeXsp, fittedpoints, meshCenter, scalefactor, spAxises, mmvs);
+	if (!suc) { MGlobal::displayError("---------- >>>>> FitMesh failed"); return MPointArray(); }
+	suc = Get2DPoints(fittedpoints, spAxises, planepts1, planepts2);
+	if (!suc) { MGlobal::displayError("---------- >>>>> Get2DPoints failed"); return MPointArray(); }
 	Z5Matrix AM1 = Z5Matrix();
 	Z5Matrix AM2 = Z5Matrix();
 	Z5Vector YV1 = Z5Vector();
 	Z5Vector YV2 = Z5Vector();
-	GetAugmentedMatrix(planepts1, AM1, YV1);
-	GetAugmentedMatrix(planepts2, AM2, YV2);
+	suc=GetAugmentedMatrix(planepts1, AM1, YV1);
+	if (!suc) { MGlobal::displayError("---------- >>>>> GetAugmentedMatrix1 failed"); return MPointArray(); }
+	suc=GetAugmentedMatrix(planepts2, AM2, YV2);
+	if (!suc) { MGlobal::displayError("---------- >>>>> GetAugmentedMatrix2 failed"); return MPointArray(); }
 	Z5Vector Coe1 = AM1.InverseMatrix() * YV1;
 	Z5Vector Coe2 = AM2.InverseMatrix() * YV2;
 	MPointArray eps = GenerateCrvEPs(Coe1, Coe2, spAxises, mmvs, epcount, (!makeXsp) * bextend);
 	double scalefactor_1 = 1.0 / scalefactor;
 	for (MPoint& tep : eps) {//先缩放后移动
-		//if (makeXsp) {//沿y轴向向中心点收缩50%
-		//	tep.y += (meshCenter.y - tep.y)*0.5;
-		//}
 		tep *= scalefactor_1;
 		tep += meshCenter;
 	}
@@ -535,7 +548,7 @@ MDagPath YourselfCommand::ZGenMesh(const ZGenMeshParam& inpa,MString inname)
 	return tdagp;
 }
 
-MStatus YourselfCommand::SmoothUniEPS(MPointArray* inunieps, unsigned int& inptarrayNum)
+MPointArray* YourselfCommand::SmoothUniEPS(MPointArray* inunieps, unsigned int& inptarrayNum)
 {
 	unsigned int ptarrayNum = 0;
 	MIntArray tindexarray;
@@ -544,6 +557,10 @@ MStatus YourselfCommand::SmoothUniEPS(MPointArray* inunieps, unsigned int& inpta
 			ptarrayNum++;
 			tindexarray.append(i);
 		}
+	}
+	if (ptarrayNum < 2) {
+		MGlobal::displayError("valid row points too few");
+		return nullptr;
 	}
 	MPointArray* unieps = new MPointArray[ptarrayNum];
 	for (unsigned int i = 0; i < ptarrayNum; ++i) {
@@ -579,8 +596,7 @@ MStatus YourselfCommand::SmoothUniEPS(MPointArray* inunieps, unsigned int& inpta
 		}
 		MGlobal::deleteNode(tncrv);
 	}
-	inunieps = unieps;
 	inptarrayNum = ptarrayNum;
-	return MStatus::kSuccess;
+	return unieps;
 }
 
