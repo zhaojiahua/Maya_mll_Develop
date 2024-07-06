@@ -54,6 +54,7 @@ private:// Store the data you will need to undo the command here
 	unsigned int crvptnum = 10;
 	unsigned int rowcurveSpans = 5;
 	double bextend = 0.05;
+	bool gencurveonly = false;
 
 	MDagPathArray resultsDagpaths;
 

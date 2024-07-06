@@ -23,10 +23,12 @@ MStatus YourselfCommand::doIt(const MArgList& arglist)
 	syt.addFlag("sp", "curveSpans", MSyntax::kUnsigned);
 	syt.addFlag("rsp", "rowcurveSpans", MSyntax::kUnsigned);
 	syt.addFlag("be", "bothExtend", MSyntax::kDouble);
+	syt.addFlag("gco", "generateMainCurveOnly", MSyntax::kBoolean);
 	MArgParser argp = MArgParser(syt, arglist, &stat);
 	if (argp.isFlagSet("curveSpans"))	stat = argp.getFlagArgument("curveSpans", 0, crvptnum);
 	if (argp.isFlagSet("rowcurveSpans"))	stat = argp.getFlagArgument("rowcurveSpans", 0, rowcurveSpans);
 	if (argp.isFlagSet("bothExtend"))	stat = argp.getFlagArgument("bothExtend", 0, bextend);
+	if (argp.isFlagSet("generateMainCurveOnly"))	stat = argp.getFlagArgument("generateMainCurveOnly", 0, gencurveonly);
 	return redoIt();
 }
 
@@ -50,7 +52,10 @@ MStatus YourselfCommand::redoIt()
 		MPointArray maincrvEPs = GenerateMatchedCurveEPs(allpoints,false, crvptnum);
 		MPointArray mainUniEPs;
 		MDagPath crvpath = GenerateEPCurve(maincrvEPs, tdag.partialPathName() + "_fitcrv_M", mainUniEPs);
-		
+		if (gencurveonly) {
+			results.append(crvpath.partialPathName());
+			continue;
+		}
 		MFnNurbsCurve crvFn(crvpath);
 		MIntArray* splitedIndexes = SlitedPointsByCrv(allpoints, crvFn);
 		//返回每一段中间位置的切线,正交化后的法线,和此切线法线组成的局部坐标系变换到世界坐标系的旋转四元数
