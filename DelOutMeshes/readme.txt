@@ -1,1 +1,2 @@
 选中两个mesh,根据这两个mesh的穿插情况,返回第二mesh不在第一个mesh内部的所有的面的id
+sensitive参数决定了是否返回交叉面,如果sensitive=0时,只要有点在mesh1的内部就不返回这个面;sensitive=1时,只要有点在mesh1外部就返回这个面
