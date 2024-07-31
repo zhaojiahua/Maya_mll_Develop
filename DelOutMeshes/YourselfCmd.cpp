@@ -13,7 +13,10 @@ YourselfCommand::~YourselfCommand()
 
 MStatus YourselfCommand::doIt(const MArgList& args)
 {
-
+	MSyntax syn = MSyntax();
+	syn.addFlag("s", "sensitive", MSyntax::kBoolean);
+	MArgParser argp = MArgParser(syn,args);
+	if (argp.isFlagSet("sensitive")) argp.getFlagArgument("sensitive", 0, issensitive);
 	MGlobal::getActiveSelectionList(sele_ls);
 	for (int i = 0; i < sele_ls.length(); ++i) {
 		MDagPath tempdag;
@@ -33,20 +36,39 @@ MStatus YourselfCommand::redoIt()
 	MPointArray allpoints;
 	fnMehs1.getPoints(allpoints, MSpace::kWorld);
 	MIntArray facesDelete;
-	for (int i = 0; i < faceCount; ++i) {
-		MIntArray vertexlist;
-		fnMehs1.getPolygonVertices(i, vertexlist);
-		int j = 0;
-		for (; j < vertexlist.length(); ++j) {
-			MPoint selfPoint = allpoints[vertexlist[j]];
-			MPoint closetPosition;
-			MVector closetNormal;
-			int closetFaceId;
-			fnMehs0.getClosestPointAndNormal(selfPoint, closetPosition, closetNormal, MSpace::kWorld, &closetFaceId, NULL);
-			MVector direc = selfPoint - closetPosition;
-			if (direc * closetNormal < 0) break;	
+	if (issensitive) {
+		for (int i = 0; i < faceCount; ++i) {
+			MIntArray vertexlist;
+			fnMehs1.getPolygonVertices(i, vertexlist);
+			int j = 0;
+			for (; j < vertexlist.length(); ++j) {
+				MPoint selfPoint = allpoints[vertexlist[j]];
+				MPoint closetPosition;
+				MVector closetNormal;
+				int closetFaceId;
+				fnMehs0.getClosestPointAndNormal(selfPoint, closetPosition, closetNormal, MSpace::kWorld, &closetFaceId, NULL);
+				MVector direc = selfPoint - closetPosition;
+				if (direc * closetNormal > 0) break;
+			}
+			if (j != vertexlist.length())facesDelete.append(i);
 		}
-		if (j == vertexlist.length())facesDelete.append(i);
+	}
+	else {
+		for (int i = 0; i < faceCount; ++i) {
+			MIntArray vertexlist;
+			fnMehs1.getPolygonVertices(i, vertexlist);
+			int j = 0;
+			for (; j < vertexlist.length(); ++j) {
+				MPoint selfPoint = allpoints[vertexlist[j]];
+				MPoint closetPosition;
+				MVector closetNormal;
+				int closetFaceId;
+				fnMehs0.getClosestPointAndNormal(selfPoint, closetPosition, closetNormal, MSpace::kWorld, &closetFaceId, NULL);
+				MVector direc = selfPoint - closetPosition;
+				if (direc * closetNormal < 0) break;
+			}
+			if (j == vertexlist.length())facesDelete.append(i);
+		}
 	}
 	if (facesDelete.length() == faceCount) {
 		facesDelete = MIntArray();

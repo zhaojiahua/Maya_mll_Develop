@@ -11,6 +11,8 @@
 #include <maya/MIntArray.h>
 #include<maya/MArgList.h>
 #include <maya/MArgParser.h>
+#include <maya/MSyntax.h>
+#include <maya/MArgParser.h>
 
 
 //MayaµÄÃüÁîÀà
@@ -32,4 +34,5 @@ private:
 	//
 	MSelectionList sele_ls;
 	MDagPathArray sele_dags;
+	bool issensitive = false;
 };
