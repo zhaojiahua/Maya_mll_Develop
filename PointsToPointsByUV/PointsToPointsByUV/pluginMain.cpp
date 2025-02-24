@@ -22,7 +22,7 @@ MStatus initializePlugin( MObject obj )
 //
 { 
 	MStatus   status;
-	MFnPlugin plugin( obj, "ZhaoJiahua", "2020", "Any");
+	MFnPlugin plugin( obj, "ZhaoJiahua", "2022", "Any");
 
 	status = plugin.registerCommand( "PointsToPointsByUV", PointsToPointsByUV::creator );
 	if (!status) {

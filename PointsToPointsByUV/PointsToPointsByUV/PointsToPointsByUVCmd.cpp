@@ -22,8 +22,8 @@ MStatus PointsToPointsByUV::redoIt()
 {
 	MString resultString;
 	
-	MFnMesh mfnMesh1(dagpath2);//2是本体
-	MFnMesh mfnMesh2(dagpath1);//1是目标体
+	MFnMesh mfnMesh1(dagpath1);//1是目标体
+	MFnMesh mfnMesh2(dagpath2);//2是本体(把1的形状传给2)
 
 	mfnMesh1.getPoints(pointsArray1);
 	mfnMesh2.getPoints(pointsArray2);
