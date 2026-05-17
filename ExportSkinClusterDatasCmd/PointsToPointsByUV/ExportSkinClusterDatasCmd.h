@@ -22,6 +22,7 @@
 #include <maya/MSyntax.h>
 #include <maya/MItMeshPolygon.h>
 #include <maya/MItDependencyNodes.h>
+#include <maya/MItDependencyGraph.h>
 #include <maya/MItGeometry.h>
 #include <maya/MFnSkinCluster.h>
 #include <maya/MFnSingleIndexedComponent.h>
@@ -41,6 +42,7 @@ public:
 
 	//指定dagpath,获取其skinCluster节点
 	MStatus		getSkinCluster(const MObject& inNode, MObject& skinCluster);
+	MStatus		getSkinCluster_new(MObject inNode, MObject& skinCluster);
 	//解析参数
 	MStatus		parseArgs(const MArgList& args);
 	MStatus		doIt( const MArgList& args)override;

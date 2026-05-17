@@ -50,7 +50,23 @@ MStatus ExportSkinClusterDatas::getSkinCluster(const MObject& inNode, MObject& s
 			}
 		}
 	}
-	displayInfo("未查找到" + dagNode.name() + "的蒙皮节点");
+	return MS::kFailure;
+}
+
+MStatus ExportSkinClusterDatas::getSkinCluster_new(MObject inNode, MObject& skinCluster){
+	//使用MItDependencyGraph进行查找节点的方法,相比于上一个方法,这个方法不需要知道具体的连接关系,只需要指定查找的节点类型和连接方向就可以了
+	MFnDagNode dagNode(inNode);
+	const unsigned int childcount = dagNode.childCount();
+	for (unsigned int i = 0; i < childcount; ++i) {
+		MObject childMesh = dagNode.child(i);
+		if (childMesh.apiType() == MFn::kMesh) {
+			MItDependencyGraph dgIt_upper(childMesh, MFn::kSkinClusterFilter, MItDependencyGraph::kUpstream);
+			if (!dgIt_upper.isDone()) {
+				skinCluster = dgIt_upper.currentItem();
+				return MS::kSuccess;
+			}
+		}
+	}
 	return MS::kFailure;
 }
 
@@ -96,8 +112,9 @@ MStatus ExportSkinClusterDatas::doIt( const MArgList& arglist)
 	for (; !selIter.isDone(); selIter.next()) {
 		MObject selectedDependNode;
 		selIter.getDependNode(selectedDependNode);
+		MFnDependencyNode fnDependencyNode(selectedDependNode);
 		MObject skinClusterNode;//skinCluster节点
-		stat = getSkinCluster(selectedDependNode, skinClusterNode);
+		stat = getSkinCluster_new(selectedDependNode, skinClusterNode);
 		if (stat == MS::kSuccess) {
 			skincount++;
 			//对于每个skinCluster节点,先获取它的所有影响物体
@@ -112,7 +129,6 @@ MStatus ExportSkinClusterDatas::doIt( const MArgList& arglist)
 			}
 
 			//打开文件,准备写入
-			MFnDependencyNode fnDependencyNode(selectedDependNode);
 			MString fileFullPathStr = filePathStr + fnDependencyNode.name() + "_skinWeights.csv";
 			FILE* file = fopen(fileFullPathStr.asChar(), "wb");
 			if (!file) {
@@ -168,6 +184,7 @@ MStatus ExportSkinClusterDatas::doIt( const MArgList& arglist)
 			displayInfo(fnDependencyNode.name() + "权重数据成功写入文件:" + fileFullPathStr);
 			fclose(file);
 		}
+		else { CheckError(MS::kFailure, fnDependencyNode.name() + "获取skinCluster节点失败!"); }
 	}
 	return MS::kSuccess;
 }
