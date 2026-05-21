@@ -53,19 +53,19 @@ MStatus ExportSkinClusterDatas::getSkinCluster(const MObject& inNode, MObject& s
 	return MS::kFailure;
 }
 
-MStatus ExportSkinClusterDatas::getSkinCluster_new(MObject inNode, MObject& skinCluster){
+MStatus ExportSkinClusterDatas::getSkinCluster_new(MDagPath inPath, MObject& skinCluster){
 	//使用MItDependencyGraph进行查找节点的方法,相比于上一个方法,这个方法不需要知道具体的连接关系,只需要指定查找的节点类型和连接方向就可以了
-	MFnDagNode dagNode(inNode);
-	const unsigned int childcount = dagNode.childCount();
-	for (unsigned int i = 0; i < childcount; ++i) {
-		MObject childMesh = dagNode.child(i);
-		if (childMesh.apiType() == MFn::kMesh) {
-			MItDependencyGraph dgIt_upper(childMesh, MFn::kSkinClusterFilter, MItDependencyGraph::kUpstream);
-			if (!dgIt_upper.isDone()) {
-				skinCluster = dgIt_upper.currentItem();
-				return MS::kSuccess;
-			}
+	if (inPath.node().apiType() != MFn::kMesh){
+		MStatus stat = inPath.extendToShape();
+		if(stat != MS::kSuccess){
+			displayError(inPath.partialPathName()+"---->> 不是Mesh类型,并且无法找到它的Shape节点!");
+			return MS::kFailure;
 		}
+	}
+	MItDependencyGraph dgIt_upper(inPath.node(), MFn::kSkinClusterFilter, MItDependencyGraph::kUpstream);
+	if (!dgIt_upper.isDone()) {
+		skinCluster = dgIt_upper.currentItem();
+		return MS::kSuccess;
 	}
 	return MS::kFailure;
 }
@@ -104,24 +104,21 @@ MStatus ExportSkinClusterDatas::doIt( const MArgList& arglist)
 	MStatus stat = parseArgs(arglist);
 	if (stat != MS::kSuccess) { return stat; }
 
-	unsigned int skincount = 0;
 	//遍历所选择的节点,找到所有的skinCluster节点
 	MSelectionList selList;
 	MGlobal::getActiveSelectionList(selList);
 	MItSelectionList selIter(selList, MFn::kInvalid);
 	for (; !selIter.isDone(); selIter.next()) {
-		MObject selectedDependNode;
-		selIter.getDependNode(selectedDependNode);
-		MFnDependencyNode fnDependencyNode(selectedDependNode);
+		MDagPath currentDagPath;
+		selIter.getDagPath(currentDagPath);
 		MObject skinClusterNode;//skinCluster节点
-		stat = getSkinCluster_new(selectedDependNode, skinClusterNode);
+		stat = getSkinCluster_new(currentDagPath, skinClusterNode);
 		if (stat == MS::kSuccess) {
-			skincount++;
 			//对于每个skinCluster节点,先获取它的所有影响物体
-			MFnSkinCluster skinCluster(skinClusterNode);
+			MFnSkinCluster skinFn(skinClusterNode);
 			//所有的蒙皮权重影响体
 			MDagPathArray infObjPathes;
-			const unsigned int nInfs = skinCluster.influenceObjects(infObjPathes, &stat);
+			const unsigned int nInfs = skinFn.influenceObjects(infObjPathes, &stat);
 			CheckError(stat, "---->>获取影响物体失败!");
 			if (nInfs == 0) {
 				stat = MS::kFailure;
@@ -129,18 +126,18 @@ MStatus ExportSkinClusterDatas::doIt( const MArgList& arglist)
 			}
 
 			//打开文件,准备写入
-			MString fileFullPathStr = filePathStr + fnDependencyNode.name() + "_skinWeights.csv";
+			MString fileFullPathStr = filePathStr + currentDagPath.partialPathName() + "_skinWeights.csv";
 			FILE* file = fopen(fileFullPathStr.asChar(), "wb");
 			if (!file) {
 				CheckError(MS::kFailure, "---->>无法打开文件:" + fileFullPathStr);
 			}
 			//遍历这个skinCluster节点的所有影响Mesh
-			const unsigned int nGeoms = skinCluster.numOutputConnections();
+			const unsigned int nGeoms = skinFn.numOutputConnections();
 			for (unsigned int j = 0; j< nGeoms; j++) {
-				const unsigned int index = skinCluster.indexForOutputConnection(j, &stat);
+				const unsigned int index = skinFn.indexForOutputConnection(j, &stat);
 				CheckError(stat, "---->>获取Geometry index 失败!");
 				MDagPath skinPath;
-				stat = skinCluster.getPathAtIndex(index, skinPath);
+				stat = skinFn.getPathAtIndex(index, skinPath);
 				CheckError(stat, "---->>获取Geometry path 失败!");
 				//遍历Geometry的所有Components
 				MItGeometry GeometryIter(skinPath);//可以用来遍历polygon的vertices
@@ -151,16 +148,17 @@ MStatus ExportSkinClusterDatas::doIt( const MArgList& arglist)
 					fprintf(file, "%s,", infObjPathes[i].partialPathName().asChar());
 				}
 				fprintf(file, "\n");
-				unsigned int progressCount{ 0 };
-				const unsigned int processStep = 0.05f * GeometryIter.count();//每5%打印一次
-				int progress{ 0 };
+				MProgressWindow::reserve();
+				MProgressWindow::setTitle(MString("正在导出") + currentDagPath.partialPathName() + "的权重数据...");
+				MProgressWindow::setInterruptable(true);
+				MProgressWindow::startProgress();
 				for (; !GeometryIter.isDone(); GeometryIter.next()) {
 					MObject comp = GeometryIter.currentItem(&stat);
 					CheckError(stat, "---->>获取Component失败!");
 					//获取每个点的权重信息
 					MDoubleArray weights;
 					unsigned int infCount;
-					stat = skinCluster.getWeights(skinPath, comp, weights, infCount);
+					stat = skinFn.getWeights(skinPath, comp, weights, infCount);
 					CheckError(stat, "---->>获取权重失败!");
 					if (infCount == 0) {
 						stat = MS::kFailure;
@@ -172,19 +170,14 @@ MStatus ExportSkinClusterDatas::doIt( const MArgList& arglist)
 						fprintf(file, "%f,", weight);
 					}
 					fprintf(file, "\n");
-					progressCount++;
-					if (progressCount > processStep) {
-						progress += 5;
-						displayInfo(MString("==========>>") + progress + "%");
-						progressCount = 0;
-					}
+					MProgressWindow::setProgress(static_cast<float>(GeometryIter.index()) / static_cast<float>(GeometryIter.count()) * 100);
 				}
 			}
-			displayInfo("------------------------------=============>>100%");
-			displayInfo(fnDependencyNode.name() + "权重数据成功写入文件:" + fileFullPathStr);
+			MProgressWindow::endProgress();
+			displayInfo(currentDagPath.partialPathName() + "权重数据成功写入文件:" + fileFullPathStr);
 			fclose(file);
 		}
-		else { CheckError(MS::kFailure, fnDependencyNode.name() + "获取skinCluster节点失败!"); }
+		else { CheckError(MS::kFailure, currentDagPath.partialPathName() + "获取skinCluster节点失败!"); }
 	}
 	return MS::kSuccess;
 }

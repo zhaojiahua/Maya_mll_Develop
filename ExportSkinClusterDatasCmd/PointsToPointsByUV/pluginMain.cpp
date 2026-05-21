@@ -4,7 +4,7 @@
 MStatus initializePlugin( MObject obj )
 { 
 	MStatus   status;
-	MFnPlugin plugin( obj, "ZhaoJiahua", "2022", "Any");
+	MFnPlugin plugin( obj, "ZhaoJiahua", "2020", "Any");
 
 	status = plugin.registerCommand( "ExportSKinClusterDatas", ExportSkinClusterDatas::creator );
 	if (!status) {
