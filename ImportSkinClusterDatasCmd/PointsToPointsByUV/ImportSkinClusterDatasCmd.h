@@ -6,6 +6,9 @@
 #include <maya/MArgDatabase.h>
 #include <maya/MSelectionList.h>
 #include <maya/MItSelectionList.h>
+#include <maya/MItMeshVertex.h>
+#include <maya/MItMeshPolygon.h>
+#include <maya/MFnSingleIndexedComponent.h>
 #include <maya/MFnMesh.h>
 #include <maya/MFnDagNode.h>
 #include <maya/MPlug.h>
@@ -28,6 +31,9 @@
 #include <maya/MFnSkinCluster.h>
 #include <maya/MFnSingleIndexedComponent.h>
 #include <maya/MIOStream.h>
+#include <maya/MDGModifier.h>
+#include <maya/MDagModifier.h>
+#include <maya/MProgressWindow.h>
 
 #include <vector>
 #include <iostream>
@@ -58,25 +64,15 @@ public:
 	static		MSyntax newSyntax();
 
 private:
-	// Store the data you will need to undo the command here
-	MString m_filePathStr;//指定csv文件夹路径
-	MSelectionList m_selectionlist;
-	MObject m_skinClusterNode{ MObject::kNullObj };
-	MObject m_skinClusterNode_old{ MObject::kNullObj };
-	MDagPath m_meshDagPath;
-	MObject m_meshComponent;
-	MStringArray m_jointsNames;
-	vector<MDoubleArray> m_vertexWeights;		//存储每个顶点的新的权重数据,用于重做
-	vector<MDoubleArray> m_vertexWeights_old;		//存储每个顶点旧的权重数据,用于撤销操作
-
-	//指定DagNode,获取其skinCluster节点
-	MStatus		getSkinCluster(MObject inNode, MObject& skinCluster);
 	//解析参数
-	MStatus		parseArgs(const MArgList& args);
+	MStatus     parseArgs(const MArgList& args);
+	//指定DagNode,获取其skinCluster节点
+	MStatus     GetSkinCluster(MDagPath inPath, MObject& skinCluster);
 	//读取.CSV文件,将其首行的joints名称存储在m_jointsNames,其对应的的顶点权重数据存储在m_vertexWeights
-	MStatus		readCSVFile(const MString& fullpath);
-	//创建蒙皮
-	MStatus		createSkinCluster();
-	//应用权重数据
-	MStatus		applyWeights(MObject& inSkinCluster, const vector<MDoubleArray>& inVertexWeights, vector<MDoubleArray>& inVertexWeights_old);
+	MStatus     ReadCSVFile(const MString& fullpath, MStringArray& m_jointsNames, vector<MDoubleArray>& m_vertexWeights);
+
+	// Store the data you will need to undo the command here
+	MString filePath;//指定csv文件夹路径
+	MDagPathArray selectedDagPaths;//当前选中的这些物体
+	MDGModifier dgModifier;//用于创建skinCluster,方便撤销
 };

@@ -1,35 +1,18 @@
 #include "ImportSkinClusterDatasCmd.h"
 #include <maya/MGlobal.h>
 
-ImportSkinClusterDatas::ImportSkinClusterDatas():m_filePathStr("C:/mayaSkinWeights/") {}
-
-MStatus ImportSkinClusterDatas::getSkinCluster(MObject inNode, MObject& skinCluster){
-	//使用MItDependencyGraph进行查找节点的方法,相比于上一个方法,这个方法不需要知道具体的连接关系,只需要指定查找的节点类型和连接方向就可以了
-	MFnDagNode dagNode(inNode);
-	const unsigned int childcount = dagNode.childCount();
-	for (unsigned int i = 0; i < childcount; ++i) {
-		MObject childMesh = dagNode.child(i);
-		if (childMesh.apiType() == MFn::kMesh) {
-			MItDependencyGraph dgIt_upper(childMesh, MFn::kSkinClusterFilter, MItDependencyGraph::kUpstream);
-			if (!dgIt_upper.isDone()) {
-				skinCluster = dgIt_upper.currentItem();
-				return MS::kSuccess;
-			}
-		}
-	}
-	return MS::kFailure;
-}
+ImportSkinClusterDatas::ImportSkinClusterDatas():filePath("C:/mayaSkinWeights/") {}
 
 MSyntax ImportSkinClusterDatas::newSyntax() {
 	MSyntax syntax;
-	syntax.addFlag("-p", "-path", MSyntax::kString);
+	syntax.addFlag("-fp", "-filePath", MSyntax::kString);
 	return syntax;
 }
 
 MStatus ImportSkinClusterDatas::parseArgs(const MArgList& args){
-	MArgDatabase argData(syntax(), args);
-	if (argData.isFlagSet("-p")) {
-		argData.getFlagArgument("-p", 0, m_filePathStr);
+	MArgDatabase argData(newSyntax(), args);
+	if (argData.isFlagSet("-fp")) {
+		argData.getFlagArgument("-fp", 0, filePath);
 	}
 	else {
 		displayError("----->>请指定.csv的文件夹路径!");
@@ -38,108 +21,57 @@ MStatus ImportSkinClusterDatas::parseArgs(const MArgList& args){
 	return MS::kSuccess;
 }
 
-MStatus ImportSkinClusterDatas::readCSVFile(const MString& fullpath){
-	ifstream file(fullpath.asChar());
-	if (!file.is_open()) {
-		displayError(MString("无法打开文件:") + fullpath);
-		return MS::kFailure;
-	}
-	string line;
-	//读取首行
-	{
-		if (!std::getline(file, line)) {
-			displayError(".csv文件为空!");
-			return MS::kFailure;
-		}
-		//存储读取到的joints名称
-		m_jointsNames.clear();
-		stringstream strstream(line);
-		string token;
-		getline(strstream, token, ',');//跳过首个元素-顶点序号
-		while (getline(strstream, token, ',')) {
-			m_jointsNames.append(token.c_str());
-		}
-	}
-	//读取顶点权重
-	{
-		while (getline(file,line)){
-			stringstream lineStrStream(line);
-			string weightStr;
-			getline(lineStrStream, weightStr, ',');//跳过首个元素
-			MDoubleArray tempWeights;
-			for (auto& jointname : m_jointsNames) {
-				getline(lineStrStream, weightStr, ',');
-				tempWeights.append(stod(weightStr));
-			}
-			m_vertexWeights.push_back(tempWeights);
-		}
-	}
-	file.close();
-	return MStatus();
+MStatus ImportSkinClusterDatas::GetSkinCluster(MDagPath inPath, MObject& skinCluster){
+    if (inPath.node().apiType() != MFn::kMesh) {
+        MStatus stat = inPath.extendToShape();
+        if (stat != MS::kSuccess) {
+            displayError(inPath.partialPathName() + "---->> 不是Mesh类型,并且无法找到它的Shape节点!");
+            return MS::kFailure;
+        }
+    }
+    MItDependencyGraph dgIt_upper(inPath.node(), MFn::kSkinClusterFilter, MItDependencyGraph::kUpstream);
+    if (!dgIt_upper.isDone()) {
+        skinCluster = dgIt_upper.currentItem();
+        return MS::kSuccess;
+    }
+    return MS::kFailure;
 }
 
-MStatus ImportSkinClusterDatas::createSkinCluster(){
-	if (m_skinClusterNode_old != MObject::kNullObj) {
-		m_skinClusterNode = m_skinClusterNode_old;
-		return MS::kSuccess;
-	}
-	MDagPathArray inflenceJointsPaths;
-	for (const auto& jname : m_jointsNames) {
-		MSelectionList tempSl;
-		tempSl.add(jname);
-		MDagPath tempJoinPath;
-		if (tempSl.getDagPath(0, tempJoinPath) == MS::kSuccess) {
-			inflenceJointsPaths.append(tempJoinPath);
-		}
-		else {
-			displayWarning(jname + "在场景中没有找到!");
-		}
-	}
-	if (inflenceJointsPaths.length() == 0) {
-		displayError("没有找到有效的joint");
-		return MS::kFailure;
-	}
-	MFnSkinCluster skinFn{};
-	MDGModifier dgModifier;
-	MDoubleArray initVertexWeights{};
-	for (auto joint : inflenceJointsPaths)initVertexWeights.append(1.0);
-	MObject skinNode = skinFn.create(m_meshDagPath, inflenceJointsPaths, initVertexWeights, dgModifier);
-
-	return MStatus();
-}
-
-MStatus ImportSkinClusterDatas::applyWeights(MObject& inSkinCluster, const vector<MDoubleArray>& inVertexWeights, vector<MDoubleArray>& inVertexWeights_old) {
-	if (inSkinCluster == MObject::kNullObj || inSkinCluster.apiType() != MFn::kSkinClusterFilter)return MS::kFailure;
-	MFnSkinCluster skinFn(inSkinCluster);
-	//获取权重列表中这些joints的排序
-	MIntArray influenceIndices;
-	for (unsigned int i = 0; i < m_jointsNames.length(); ++i) {
-		MStatus status;
-		MSelectionList tempsl{};
-		tempsl.add(m_jointsNames[i]);
-		MDagPath tempJointDagPath{};
-		tempsl.getDagPath(0, tempJointDagPath);
-		unsigned int idx = skinFn.indexForInfluenceObject(tempJointDagPath, &status);	//获取joint的排序序号
-		if (status == MS::kSuccess) {
-			influenceIndices.append((int)idx);
-		}
-		else {
-			// Fallback: assume indices are in order 0..N-1
-			influenceIndices.append(i);
-		}
-	}
-	for (unsigned int v = 0; v < inVertexWeights.size(); ++v) {
-		MDoubleArray vertexWeights{};	//按照joints的顺序,构建权重数据
-		for (unsigned int i = 0; i < influenceIndices.length(); ++i) {
-			vertexWeights.append(inVertexWeights.at(v)[i]);
-		}
-	 	const MStatus stat = skinFn.setWeights(m_meshDagPath, m_meshComponent, influenceIndices, vertexWeights, false, &(inVertexWeights_old[v]));
-		if (stat == MS::kSuccess) {
-			displayWarning(MString("----->>顶点") + v + "的权重设置失败!");
-		}
-	}
-	displayInfo(MString("-------------------------------------->>") + m_meshDagPath.partialPathName() + "蒙皮权重设置成功!");
-	return MStatus();
+MStatus ImportSkinClusterDatas::ReadCSVFile(const MString& fullpath, MStringArray& m_jointsNames, vector<MDoubleArray>& m_vertexWeights){
+    std::ifstream file(fullpath.asChar());
+    if (!file.is_open()) {
+        MString msg = "Cannot open CSV file: ";
+        MGlobal::displayError(msg + fullpath);
+        return MS::kFailure;
+    }
+    std::string line;
+    // Read header line: vertex_index,joint1,joint2,joint3,...
+    if (!std::getline(file, line)) {
+        MGlobal::displayError(fullpath + " is empty");
+        return MS::kFailure;
+    }
+    // Parse joint names
+    std::stringstream ss(line);
+    std::string tempjoint;
+    std::getline(ss, tempjoint, ','); // skip "vertex_index"
+    while (std::getline(ss, tempjoint, ',')) {
+        m_jointsNames.append(MString(tempjoint.c_str()));
+    }
+    // Read weight data
+    while (std::getline(file, line)) {
+        std::stringstream lineStream(line);
+        std::string tempweight;
+        // skip vertex index
+        std::getline(lineStream, tempweight, ',');
+        MDoubleArray weights;
+        for (unsigned int i = 0; i < m_jointsNames.length(); ++i) {
+            std::getline(lineStream, tempweight, ',');
+            weights.append(std::stod(tempweight));
+        }
+        m_vertexWeights.push_back(weights);
+    }
+    file.close();
+    return MS::kSuccess;
 }
 
 //先选目标体再选本体
@@ -154,53 +86,88 @@ MStatus ImportSkinClusterDatas::doIt( const MArgList& arglist){
 
 MStatus ImportSkinClusterDatas::redoIt()
 {
-	MGlobal::getActiveSelectionList(m_selectionlist);
-	if (m_selectionlist.length() != 1) {
-		displayError("----->>必须选择且只能选择一个mesh物体");
-		return MS::kFailure;
-	}
-	MStatus stat = m_selectionlist.getDagPath(0, m_meshDagPath);
-	if (stat != MS::kSuccess) {
-		displayError("----->>获取所选物体的DAG Path失败!");
-		return stat;
-	}
-	stat = readCSVFile(m_filePathStr + m_meshDagPath.partialPathName() + ".csv");
-	if (stat != MS::kSuccess) {
-		displayError("----->>readCSVFile执行失败!");
-		return stat;
-	}
-	//先查找其原有的skinCluster节点
-	stat = getSkinCluster(m_meshDagPath.node(), m_skinClusterNode_old);
-	if (stat != MS::kSuccess)m_skinClusterNode_old = MObject::kNullObj;
-	//再创建新的skinCluster节点
-	stat = createSkinCluster();
-	if (stat != MS::kSuccess) {
-		displayError("----->>createSkinCluster执行失败!");
-		return stat;
-	}
-	stat = applyWeights(m_skinClusterNode, m_vertexWeights, m_vertexWeights_old);
-	if (stat != MS::kSuccess) {
-		displayError("----->>applyWeights应用权重数据失败!");
-		return stat;
-	}
-	return MS::kSuccess;
+    MStatus stat;
+    MSelectionList templist{};
+    MGlobal::getActiveSelectionList(templist);
+    for (unsigned int i = 0; i < templist.length(); ++i) {
+        MDagPath tempDagPath;
+        templist.getDagPath(i, tempDagPath);
+        //if (tempDagPath.apiType() != MFn::kMesh)tempDagPath.extendToShape();
+        selectedDagPaths.append(tempDagPath);
+    }
+    MProgressWindow::reserve();
+    MProgressWindow::setTitle("正在导入权重数据!");
+    MProgressWindow::setInterruptable(true);
+    MProgressWindow::startProgress();
+    unsigned int processIndex = 0;
+    for (auto selectedDagPath : selectedDagPaths) {
+        MStringArray m_jointsNames{};//存储骨骼名称
+        vector<MDoubleArray> m_vertexWeights{};//存储定点权重
+        stat = ReadCSVFile(filePath + selectedDagPath.partialPathName() + "_skinWeights.csv", m_jointsNames, m_vertexWeights);
+        MItGeometry GeoIt(selectedDagPath);
+        MIntArray vertexIndices{};
+        for (; !GeoIt.isDone(); GeoIt.next()) {
+            vertexIndices.append(GeoIt.index());
+        }
+        if (m_vertexWeights.size() != vertexIndices.length()) {
+            displayError(selectedDagPath.partialPathName() + "读取的.csv权重数目与其vertexComponent数目不一致! 读取的行数:" + m_vertexWeights.size() + "自身的Mesh顶点数目:" + vertexIndices.length());
+            continue;
+        }
+        //创建skinCluster
+        if (stat == MS::kSuccess) {
+            MString melCmdLine("skinCluster -dr 10 -tsb ");
+            for (auto jointname : m_jointsNames) {
+                melCmdLine += jointname + " ";
+            }
+            melCmdLine += selectedDagPath.partialPathName();
+            dgModifier.commandToExecute(melCmdLine);
+            dgModifier.doIt();
+            //获取skinCluster节点
+            MObject skinClusterNode;
+            stat = GetSkinCluster(selectedDagPath, skinClusterNode);
+            //应用权重
+            if (stat == MS::kSuccess) {
+                MFnSkinCluster skinFn(skinClusterNode);
+                //构建骨骼顺序参数
+                MIntArray inflenceIndices{};
+                for (auto jointname : m_jointsNames) {
+                    MSelectionList tempsl{};
+                    tempsl.add(jointname);
+                    MDagPath joinDagPath{};
+                    tempsl.getDagPath(0, joinDagPath);
+                    const unsigned int jointInflenceIndex = skinFn.indexForInfluenceObject(joinDagPath);
+                    inflenceIndices.append(jointInflenceIndex);
+                }
+                //构建权重参数
+                MDoubleArray tempweights;
+                for (auto vertxweight : m_vertexWeights) {
+                    for (auto dweight : vertxweight) {
+                        tempweights.append(dweight);
+                    }
+                }
+                //构建component参数
+                MFnSingleIndexedComponent compFn;
+                MObject allverticesComp = compFn.create(MFn::kMeshVertComponent);
+                compFn.addElements(vertexIndices);
+                //应用权重
+                stat = skinFn.setWeights(selectedDagPath, allverticesComp, inflenceIndices, tempweights, false);
+                if (stat == MS::kSuccess) {
+                    displayInfo(selectedDagPath.partialPathName() + "--------------------------------------->>权重应用成功!");
+                }
+            }
+            else displayError(selectedDagPath.partialPathName() + "GetSkinCluster失败!");
+        }
+        processIndex++;
+        MProgressWindow::setProgress(static_cast<float>(processIndex) / static_cast<float>(selectedDagPaths.length()) * 100);
+    }
+    MProgressWindow::endProgress();
+    return MS::kSuccess;
 }
 
-MStatus ImportSkinClusterDatas::undoIt(){
-	if (m_skinClusterNode_old == MObject::kNullObj) {
-		MDGModifier dagModifier;
-		dagModifier.deleteNode(m_skinClusterNode);
-		return dagModifier.doIt();
-	}
-	else {
-		const MStatus stat = applyWeights(m_skinClusterNode_old, m_vertexWeights_old, m_vertexWeights);
-		if (stat != MS::kSuccess) {
-			displayWarning("权重恢复失败!");
-			return MS::kFailure;
-		}
-		displayInfo("撤销操作成功,权重已恢复为原来的数据");
-	}
-	return MS::kSuccess;
+MStatus ImportSkinClusterDatas::undoIt() {
+    dgModifier.undoIt();
+    displayInfo("ImportSkinClusterDatas Command undone!\n");
+    return MS::kSuccess;
 }
 
 void* ImportSkinClusterDatas::creator() { return new ImportSkinClusterDatas(); }
